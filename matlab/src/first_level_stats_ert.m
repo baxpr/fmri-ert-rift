@@ -1,12 +1,11 @@
 function first_level_stats_ert(inp)
 
 % Input variables
-%
 %   psydat_csv
-%   out_dir
 %   fmriprep1_dir
 %   fmriprep2_dir
 %   hpf_sec
+%   out_dir
 
 %   Trial phases are Instruction, Image, Response (3)
 %   Additionally, model trial type (6)
@@ -52,7 +51,7 @@ for r = 1:2
 end
 
 
-%% fmriprep stuff
+%% Find fmriprep files
 
 % Scale motion params and save in SPM friendly format
 for r = 1:2
@@ -63,12 +62,18 @@ for r = 1:2
     writematrix(mot, fullfile(inp.out_dir,['motpar' num2str(r) '.txt']))
 end
 
-% Find preprocessed image files
-clear niigz
+% Find preprocessed image files, copy, and unzip
+clear fmri_nii
 for r = 1:2
     niigzD = dir([inp.(['fmriprep' num2str(r) '_dir']) '/sub*/ses*/func/*_space-MNI152NLin6Asym_desc-preproc_bold.nii.gz']);
-    niigz{r} = fullfile(niigzD(1).folder,niigzD(1).name);
+    fmri_nii{r} = fullfile(inp.out_dir,['fmri' num2str(r) '.nii']);
+    copyfile( ...
+        fullfile(niigzD(1).folder,niigzD(1).name), ...
+        [fmri_nii{r} '.gz'] ...
+        );
 end
+gunzip(fullfile(inp.out_dir,'fmri*.nii.gz'));
+delete(fullfile(inp.out_dir,'fmri*.nii.gz'));
 
 
 %% Other params needed by SPM
@@ -76,11 +81,11 @@ end
 % Filter param
 hpf_sec = str2double(inp.hpf_sec);
 
-% Get TRs and check
-N = nifti(inp.swfmri1_nii);
+% Get TRs and check across runs
+N = nifti(fmri_nii{1});
 tr = N.timing.tspace;
 for r = 2
-	N = nifti(inp.(['swfmri' num2str(r) '_nii']));
+	N = nifti(fmri_nii{r});
 	if abs(N.timing.tspace-tr) > 0.001
 		error('TR not matching for run %d',r)
 	end
@@ -88,14 +93,10 @@ end
 
 
 
-%% OLD BELOW HERE
-
-
-
 %% Design
 clear matlabbatch
 matlabbatch{1}.spm.stats.fmri_spec.dir = ...
-	{fullfile(inp.out_dir,['spm_' tag])};
+	{fullfile(inp.out_dir,'spm_ert')};
 matlabbatch{1}.spm.stats.fmri_spec.timing.units = 'secs';
 matlabbatch{1}.spm.stats.fmri_spec.timing.RT = tr;
 matlabbatch{1}.spm.stats.fmri_spec.timing.fmri_t = 16;
@@ -107,6 +108,14 @@ matlabbatch{1}.spm.stats.fmri_spec.global = 'None';
 matlabbatch{1}.spm.stats.fmri_spec.mthresh = -Inf;
 matlabbatch{1}.spm.stats.fmri_spec.mask = {[spm('dir') '/tpm/mask_ICV.nii']};
 matlabbatch{1}.spm.stats.fmri_spec.cvi = 'AR(1)';
+
+
+
+
+%% OLD BELOW HERE
+
+
+
 
 for r = 1:2
 	
