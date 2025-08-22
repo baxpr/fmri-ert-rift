@@ -1,5 +1,13 @@
 function first_level_stats_ert(inp)
 
+% Input variables
+%
+%   psydat_csv
+%   out_dir
+%   fmriprep1_dir
+%   fmriprep2_dir
+%   hpf_sec
+
 %   Trial phases are Instruction, Image, Response (3)
 %   Additionally, model trial type (6)
 
@@ -32,36 +40,41 @@ timevars = { ...
     };
 keepvars = [condvars timevars];
 
-% Run-specific info
-info1 = timings(strcmp(timings.block_file,'ert_block_1.csv'),keepvars);
-info2 = timings(strcmp(timings.block_file,'ert_block_2.csv'),keepvars);
-
-% Subtract scan start times to get relative to beginning of first fmri
+% Find scan start times
 scanstarts = sort(timings.startedScanning(~isnan(timings.startedScanning)));
-info1(:,timevars) = info1(:,timevars) - scanstarts(1);
-info2(:,timevars) = info2(:,timevars) - scanstarts(2);
+
+% Run-specific timing info relative to beginning of first fmri
+clear trialtimes
+for r = 1:2
+    blockfile = ['ert_block_' num2str(r) '.csv'];
+    trialtimes{r} = timings(strcmp(timings.block_file,blockfile),keepvars);
+    trialtimes{r}(:,timevars) = trialtimes{r}(:,timevars) - scanstarts(r);
+end
 
 
+%% fmriprep stuff
+
+% Scale motion params and save in SPM friendly format
+for r = 1:2
+    confD = dir([inp.(['fmriprep' num2str(r) '_dir']) '/sub*/ses*/func/*_desc-confounds_timeseries.tsv']);
+    conf = readtable(fullfile(confD(1).folder,confD(1).name),'FileType','text','Delimiter','tab');
+    motT = conf(:,{'trans_x','trans_y','trans_z','rot_x','rot_y','rot_z'});
+    mot = zscore(table2array(motT));
+    writematrix(mot, fullfile(inp.out_dir,['motpar' num2str(r) '.txt']))
+end
+
+% Find preprocessed image files
+clear niigz
+for r = 1:2
+    niigzD = dir([inp.(['fmriprep' num2str(r) '_dir']) '/sub*/ses*/func/*_space-MNI152NLin6Asym_desc-preproc_bold.nii.gz']);
+    niigz{r} = fullfile(niigzD(1).folder,niigzD(1).name);
+end
 
 
-%% OLD BELOW HERE
+%% Other params needed by SPM
 
 % Filter param
 hpf_sec = str2double(inp.hpf_sec);
-
-% Save motion params as .mat
-for r = 1:2
-	mot = readtable(inp.(['motpar' num2str(r) '_txt']),'FileType','text');
-	mot = zscore(table2array(mot(:,1:6)));
-	writematrix(mot, fullfile(inp.out_dir,['motpar' num2str(r) '.txt']))
-end
-
-% Load trial timing info
-trials = readtable(inp.trialreport_csv);
-
-% Compute trial duration from T1 to T3
-trials.T1_T3_Duration_fMRIsec = ...
-	trials.T3_FeedbackOnset_fMRIsec - trials.T1_TrialStart_fMRIsec;
 
 % Get TRs and check
 N = nifti(inp.swfmri1_nii);
@@ -72,7 +85,11 @@ for r = 2
 		error('TR not matching for run %d',r)
 	end
 end
-fprintf('ALERT: USING TR OF %0.3f sec FROM FMRI NIFTI\n',tr)
+
+
+
+%% OLD BELOW HERE
+
 
 
 %% Design
