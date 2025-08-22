@@ -1,8 +1,50 @@
 function first_level_stats_ert(inp)
 
-%   Trial phases are Instruction, Image, Response
-%   Additionally, vary by trial type (6 conditions total for each)
+%   Trial phases are Instruction, Image, Response (3)
+%   Additionally, model trial type (6)
 
+%    image_category      strategy  
+%    ______________    ____________
+%
+%     {'negative'}     {'ACCEPT'  }
+%     {'negative'}     {'AVOID'   }
+%     {'negative'}     {'DISTRACT'}
+%     {'negative'}     {'LOOK'    }
+%     {'negative'}     {'REFRAME' }
+%     {'neutral' }     {'LOOK'    }
+
+
+%% Get timing info from converted psydat
+timings = readtable(inp.psydat_csv);
+
+% Add condition column
+timings.condition = strcat(timings.image_category,'_',timings.strategy);
+
+% Condition and timing variables
+condvars = {'condition'};
+timevars = { ...
+    'instructional_cue_started', ...
+    'instructional_cue_stopped', ...
+    'image_started', ...
+    'image_stopped', ...
+    'affect_rating_ert_started', ...
+    'affect_rating_ert_stopped' ...
+    };
+keepvars = [condvars timevars];
+
+% Run-specific info
+info1 = timings(strcmp(timings.block_file,'ert_block_1.csv'),keepvars);
+info2 = timings(strcmp(timings.block_file,'ert_block_2.csv'),keepvars);
+
+% Subtract scan start times to get relative to beginning of first fmri
+scanstarts = sort(timings.startedScanning(~isnan(timings.startedScanning)));
+info1(:,timevars) = info1(:,timevars) - scanstarts(1);
+info2(:,timevars) = info2(:,timevars) - scanstarts(2);
+
+
+
+
+%% OLD BELOW HERE
 
 % Filter param
 hpf_sec = str2double(inp.hpf_sec);
