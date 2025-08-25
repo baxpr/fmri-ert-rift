@@ -22,6 +22,7 @@ function first_level_stats_ert(inp)
 
 
 %% Get timing info from converted psydat
+warning('off','MATLAB:table:ModifiedAndSavedVarnames');
 timings = readtable(inp.psydat_csv);
 
 % Add condition column
@@ -44,7 +45,8 @@ scanstarts = sort(timings.startedScanning(~isnan(timings.startedScanning)));
 
 % Run-specific timing info relative to beginning of first fmri
 clear trialtimes
-for r = 1:2
+nruns = 2;
+for r = 1:nruns
     blockfile = ['ert_block_' num2str(r) '.csv'];
     trialtimes{r} = timings(strcmp(timings.block_file,blockfile),keepvars);
     trialtimes{r}(:,timevars) = trialtimes{r}(:,timevars) - scanstarts(r);
@@ -54,7 +56,7 @@ end
 %% Find fmriprep files
 
 % Scale motion params and save in SPM friendly format
-for r = 1:2
+for r = 1:nruns
     confD = dir([inp.(['fmriprep' num2str(r) '_dir']) '/sub*/ses*/func/*_desc-confounds_timeseries.tsv']);
     conf = readtable(fullfile(confD(1).folder,confD(1).name),'FileType','text','Delimiter','tab');
     motT = conf(:,{'trans_x','trans_y','trans_z','rot_x','rot_y','rot_z'});
@@ -64,7 +66,7 @@ end
 
 % Find preprocessed image files, copy, and unzip
 clear fmri_nii
-for r = 1:2
+for r = 1:nruns
     niigzD = dir([inp.(['fmriprep' num2str(r) '_dir']) '/sub*/ses*/func/*_space-MNI152NLin6Asym_desc-preproc_bold.nii.gz']);
     fmri_nii{r} = fullfile(inp.out_dir,['fmri' num2str(r) '.nii']);
     copyfile( ...
@@ -75,6 +77,17 @@ end
 gunzip(fullfile(inp.out_dir,'fmri*.nii.gz'));
 delete(fullfile(inp.out_dir,'fmri*.nii.gz'));
 
+% Also the T1
+niigzD = dir([inp.('fmriprep1_dir') '/sub*/ses*/anat/*_space-MNI152NLin6Asym_desc-preproc_T1w.nii.gz']);
+atlasT1_nii = fullfile(inp.out_dir,'t1.nii');
+copyfile( ...
+    fullfile(niigzD(1).folder,niigzD(1).name), ...
+    [atlasT1_nii '.gz'] ...
+    );
+gunzip(fullfile(inp.out_dir,'t1.nii.gz'));
+delete(fullfile(inp.out_dir,'t1.nii.gz'));
+
+  
 
 %% Other params needed by SPM
 
@@ -84,13 +97,12 @@ hpf_sec = str2double(inp.hpf_sec);
 % Get TRs and check across runs
 N = nifti(fmri_nii{1});
 tr = N.timing.tspace;
-for r = 2
+for r = 2:nruns
 	N = nifti(fmri_nii{r});
 	if abs(N.timing.tspace-tr) > 0.001
 		error('TR not matching for run %d',r)
 	end
 end
-
 
 
 %% Design
@@ -110,23 +122,11 @@ matlabbatch{1}.spm.stats.fmri_spec.mask = {[spm('dir') '/tpm/mask_ICV.nii']};
 matlabbatch{1}.spm.stats.fmri_spec.cvi = 'AR(1)';
 
 
+for r = 1:nruns
 
-
-%% OLD BELOW HERE
-
-
-
-
-for r = 1:2
-	
-	% Initialize
-	thist = trials(trials.Run==r,:);
-	ind = ismember(thist.Outcome,{'Win','Lose'});
-	c = 0;
-	
 	% Session-specific scans, regressors, params
 	matlabbatch{1}.spm.stats.fmri_spec.sess(r).scans = ...
-		{inp.(['swfmri' num2str(r) '_nii'])};
+		fmri_nii(r);
 	matlabbatch{1}.spm.stats.fmri_spec.sess(r).multi = {''};
 	matlabbatch{1}.spm.stats.fmri_spec.sess(r).regress = ...
 		struct('name', {}, 'val', {});
@@ -134,35 +134,60 @@ for r = 1:2
 		{fullfile(inp.out_dir,['motpar' num2str(r) '.txt'])};
 	matlabbatch{1}.spm.stats.fmri_spec.sess(r).hpf = hpf_sec;
 	
-	% Condition: Cue
-	c = c + 1;
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(c).name = 'Cue';
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(c).onset = ...
-		thist.T1_TrialStart_fMRIsec(ind);
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(c).duration = 0;
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(c).tmod = 0;
+    % Conditions
+    % FIXME Refactor to use the exact same list of conditions for all runs.
+    % Prob just pre-specify the known list, which will simplify contrast
+    % building also
+    k = 0;
+    conds = unique(trialtimes{r}.condition);
 
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(c).pmod(1).name = 'mu33';
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(c).pmod(1).param = thist.traj_mu_33(ind);
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(c).pmod(1).poly = 1;
+    for c = 1:numel(conds)
 
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(c).orth = 1;
+        inds = strcmp(trialtimes{r}.condition,conds{c});
 
-	% Condition: Feedback
-	c = c + 1;
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(c).name = 'Feedback';
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(c).onset = ...
-		thist.T3_FeedbackOnset_fMRIsec(ind);
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(c).duration = 0;
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(c).tmod = 0;
+%        % Condition cue
+%        k = k + 1;
+%    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Cue'];
+%    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
+%    		trialtimes{r}.instructional_cue_started(inds);
+%    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
+%            trialtimes{r}.instructional_cue_stopped(inds) ...
+%            - trialtimes{r}.instructional_cue_started(inds);
+%    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
+%        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).pmod = ...
+%            struct('name', {}, 'param', {}, 'poly', {});
+%    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).orth = 1;
 
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(c).pmod(1).name = 'epsi3';
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(c).pmod(1).param = thist.traj_epsi_3(ind);
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(c).pmod(1).poly = 1;
+        % Condition image
+        k = k + 1;
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Image'];
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
+    		trialtimes{r}.image_started(inds);
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
+            trialtimes{r}.image_stopped(inds) ...
+            - trialtimes{r}.image_started(inds);
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
+        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).pmod = ...
+            struct('name', {}, 'param', {}, 'poly', {});
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).orth = 1;
 
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(c).orth = 1;	
-	
+        % Condition response
+        k = k + 1;
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Response'];
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
+    		trialtimes{r}.affect_rating_ert_started(inds);
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
+            trialtimes{r}.affect_rating_ert_stopped(inds) ...
+            - trialtimes{r}.affect_rating_ert_started(inds);
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
+        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).pmod = ...
+            struct('name', {}, 'param', {}, 'poly', {});
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).orth = 1;
+
+    end
+
 end
+
 
 %% Estimate
 matlabbatch{2}.spm.stats.fmri_est.spmmat = ...
@@ -190,41 +215,21 @@ matlabbatch{3}.spm.stats.con.delete = 1;
 c = 0;
 
 c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Cue';
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = [1 0 0 0];
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = [conds{1} '_Cue'];
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = [1 -1];
 matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
 
-c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Cue x Mu33';
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = [0 1 0 0];
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-
-c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Feedback';
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = [0 0 1 0];
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-
-c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Feedback x Epsi3';
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = [0 0 0 1];
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-
-c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Cue + Feedback';
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = [0.5 0 0.5 0];
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-
-
-% Inverse of all existing contrasts since SPM won't show us both sides
-numc = numel(matlabbatch{3}.spm.stats.con.consess);
-for k = 1:numc
-        c = c + 1;
-        matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = ...
-                ['Neg ' matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.name];
-        matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
-                - matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.weights;
-        matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-end
+%
+%% Inverse of all existing contrasts since SPM won't show us both sides
+%numc = numel(matlabbatch{3}.spm.stats.con.consess);
+%for k = 1:numc
+%        c = c + 1;
+%        matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = ...
+%                ['Neg ' matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.name];
+%        matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
+%                - matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.weights;
+%        matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
+%end
 
 
 %% Review design
@@ -234,28 +239,29 @@ matlabbatch{4}.spm.stats.review.display.matrix = 1;
 matlabbatch{4}.spm.stats.review.print = false;
 
 matlabbatch{5}.cfg_basicio.run_ops.call_matlab.inputs{1}.string = ...
-        fullfile(inp.out_dir,['first_level_design_' tag '.png']);
+        fullfile(inp.out_dir,'first_level_design_ert.png');
 matlabbatch{5}.cfg_basicio.run_ops.call_matlab.outputs = cell(1,0);
 matlabbatch{5}.cfg_basicio.run_ops.call_matlab.fun = 'spm_window_print';
 
 
 %% Save batch and run
-save(fullfile(inp.out_dir,['spmbatch_first_level_stats_' tag '.mat']),'matlabbatch')
+save(fullfile(inp.out_dir,'spmbatch_first_level_stats_ert.mat'),'matlabbatch')
+spm('defaults','fmri')
 spm_jobman('run',matlabbatch);
 
 % And save contrast names
-numc = numel(matlabbatch{3}.spm.stats.con.consess);
-connames = table((1:numc)','VariableNames',{'ConNum'});
-for k = 1:numc
-	try
-		connames.ConName{k,1} = ...
-			matlabbatch{3}.spm.stats.con.consess{k}.tcon.name;
-	catch
-		connames.ConName{k,1} = ...
-			matlabbatch{3}.spm.stats.con.consess{k}.fcon.name;
-	end
-end
-writetable(connames,fullfile(inp.out_dir,['spm_contrast_names_' tag '.csv']));
+%numc = numel(matlabbatch{3}.spm.stats.con.consess);
+%connames = table((1:numc)','VariableNames',{'ConNum'});
+%for k = 1:numc
+%	try
+%		connames.ConName{k,1} = ...
+%			matlabbatch{3}.spm.stats.con.consess{k}.tcon.name;
+%	catch
+%		connames.ConName{k,1} = ...
+%			matlabbatch{3}.spm.stats.con.consess{k}.fcon.name;
+%	end
+%end
+%writetable(connames,fullfile(inp.out_dir,['spm_contrast_names_' tag '.csv']));
 
 
 %% Results display
@@ -275,7 +281,7 @@ xSPM = struct( ...
 [hReg,xSPM] = spm_results_ui('Setup',xSPM);
 
 % Show on the subject MNI anat
-spm_sections(xSPM,hReg,inp.biasnorm_nii)
+spm_sections(xSPM,hReg,atlasT1_nii)
 
 % Jump to global max activation
 spm_mip_ui('Jump',spm_mip_ui('FindMIPax'),'glmax');
