@@ -106,6 +106,18 @@ end
 
 
 %% Design
+
+% Conditions pre-specified
+conds = {
+    'negative_ACCEPT'
+    'negative_AVOID'
+    'negative_DISTRACT'
+    'negative_LOOK'
+    'negative_REFRAME'
+    'neutral_LOOK'
+    };
+
+% General design
 clear matlabbatch
 matlabbatch{1}.spm.stats.fmri_spec.dir = ...
 	{fullfile(inp.out_dir,'spm_ert')};
@@ -134,13 +146,8 @@ for r = 1:nruns
 		{fullfile(inp.out_dir,['motpar' num2str(r) '.txt'])};
 	matlabbatch{1}.spm.stats.fmri_spec.sess(r).hpf = hpf_sec;
 	
-    % Conditions
-    % FIXME Refactor to use the exact same list of conditions for all runs.
-    % Prob just pre-specify the known list, which will simplify contrast
-    % building also
+    % Conditions per run
     k = 0;
-    conds = unique(trialtimes{r}.condition);
-
     for c = 1:numel(conds)
 
         inds = strcmp(trialtimes{r}.condition,conds{c});
@@ -199,37 +206,63 @@ matlabbatch{2}.spm.stats.fmri_est.method.Classical = 1;
 %% Contrasts
 %
 % Parameters per session SPM.xX.name' are
-%    {'Sn(1) Cue*bf(1)'             }
-%    {'Sn(1) Cuexmu33^1*bf(1)'      }
-%    {'Sn(1) Feedback*bf(1)'        }
-%    {'Sn(1) Feedbackxepsi3^1*bf(1)'}
-%    {'Sn(1) R1'                    }
-%    {'Sn(1) R2'                    }
-%    {'Sn(1) R3'                    }
-%    {'Sn(1) R4'                    }
-%    {'Sn(1) R5'                    }
-%    {'Sn(1) R6'                    }
+%    {'negative_ACCEPT_Image'     }
+%    {'negative_ACCEPT_Response'  }
+%    {'negative_AVOID_Image'      }
+%    {'negative_AVOID_Response'   }
+%    {'negative_DISTRACT_Image'   }
+%    {'negative_DISTRACT_Response'}
+%    {'negative_LOOK_Image'       }
+%    {'negative_LOOK_Response'    }
+%    {'negative_REFRAME_Image'    }
+%    {'negative_REFRAME_Response' }
+%    {'neutral_LOOK_Image'        }
+%    {'neutral_LOOK_Response'     }
+%    {'Sn(1) R1'                  }
+%    {'Sn(1) R2'                  }
+%    {'Sn(1) R3'                  }
+%    {'Sn(1) R4'                  }
+%    {'Sn(1) R5'                  }
+%    {'Sn(1) R6'                  }
 matlabbatch{3}.spm.stats.con.spmmat = ...
 	matlabbatch{2}.spm.stats.fmri_est.spmmat;
 matlabbatch{3}.spm.stats.con.delete = 1;
 c = 0;
 
+% Sanity check
 c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = [conds{1} '_Cue'];
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = [1 -1];
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Image gt Response';
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
+    1/6 * [1 -1   1 -1   1 -1   1 -1   1 -1   1 -1];
 matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
+
+% Individual conditions
+types = {'Image', 'Response'};
+for a = 1:numel(conds)
+    for b = 1:numel(types)
+        c = c + 1;
+        matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = [conds{a} '_' types{b}];
+        v1 = [zeros(1,b-1) 1 zeros(1,numel(types)-b)];
+        cvec = zeros(1,numel(conds)*numel(types));
+        ind = a*numel(types)-numel(types)+1;
+        cvec(ind:ind+numel(types)-1) = v1;
+        matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = cvec;
+        matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
+    end
+end
+
 
 %
 %% Inverse of all existing contrasts since SPM won't show us both sides
-%numc = numel(matlabbatch{3}.spm.stats.con.consess);
-%for k = 1:numc
-%        c = c + 1;
-%        matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = ...
-%                ['Neg ' matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.name];
-%        matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
-%                - matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.weights;
-%        matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-%end
+numc = numel(matlabbatch{3}.spm.stats.con.consess);
+for k = 1:numc
+        c = c + 1;
+        matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = ...
+                ['Neg ' matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.name];
+        matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
+                - matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.weights;
+        matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
+end
 
 
 %% Review design
@@ -283,6 +316,7 @@ xSPM = struct( ...
 % Show on the subject MNI anat
 spm_sections(xSPM,hReg,atlasT1_nii)
 
-% Jump to global max activation
-spm_mip_ui('Jump',spm_mip_ui('FindMIPax'),'glmax');
+% Jump to activation location
+%spm_mip_ui('Jump',spm_mip_ui('FindMIPax'),'glmax');  % Global max
+spm_mip_ui('SetCoords',[5 -96 6]);  % Task specific MNI location
 
