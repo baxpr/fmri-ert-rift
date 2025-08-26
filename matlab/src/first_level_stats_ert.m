@@ -109,12 +109,12 @@ end
 
 % Conditions pre-specified
 conds = {
+    'negative_LOOK'
+    'neutral_LOOK'
     'negative_ACCEPT'
     'negative_AVOID'
     'negative_DISTRACT'
-    'negative_LOOK'
     'negative_REFRAME'
-    'neutral_LOOK'
     };
 
 % General design
@@ -206,18 +206,18 @@ matlabbatch{2}.spm.stats.fmri_est.method.Classical = 1;
 %% Contrasts
 %
 % Parameters per session SPM.xX.name' are
+%    {'negative_LOOK_Image'       }
+%    {'negative_LOOK_Response'    }
+%    {'neutral_LOOK_Image'        }
+%    {'neutral_LOOK_Response'     }
 %    {'negative_ACCEPT_Image'     }
 %    {'negative_ACCEPT_Response'  }
 %    {'negative_AVOID_Image'      }
 %    {'negative_AVOID_Response'   }
 %    {'negative_DISTRACT_Image'   }
 %    {'negative_DISTRACT_Response'}
-%    {'negative_LOOK_Image'       }
-%    {'negative_LOOK_Response'    }
 %    {'negative_REFRAME_Image'    }
 %    {'negative_REFRAME_Response' }
-%    {'neutral_LOOK_Image'        }
-%    {'neutral_LOOK_Response'     }
 %    {'Sn(1) R1'                  }
 %    {'Sn(1) R2'                  }
 %    {'Sn(1) R3'                  }
@@ -250,6 +250,67 @@ for a = 1:numel(conds)
         matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
     end
 end
+
+% negative_LOOK vs others
+c = c + 1;
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Image negative_LOOK gt neutral_LOOK';
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
+    [1 0   -1 0];
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
+
+c = c + 1;
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Response negative_LOOK gt neutral_LOOK';
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
+    [0 1   0 -1];
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
+
+c = c + 1;
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Image negative_LOOK gt negative_ACCEPT';
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
+    [1 0   0 0   -1 0];
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
+
+c = c + 1;
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Response negative_LOOK gt negative_ACCEPT';
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
+    [0 1   0 0   0 -1];
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
+
+c = c + 1;
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Image negative_LOOK gt negative_AVOID';
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
+    [1 0   0 0   0 0   -1 0];
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
+
+c = c + 1;
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Response negative_LOOK gt negative_AVOID';
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
+    [0 1   0 0   0 0   0 -1];
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
+
+c = c + 1;
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Image negative_LOOK gt negative_DISTRACT';
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
+    [1 0   0 0   0 0   0 0   -1 0];
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
+
+c = c + 1;
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Response negative_LOOK gt negative_DISTRACT';
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
+    [0 1   0 0   0 0   0 0   0 -1];
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
+
+c = c + 1;
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Image negative_LOOK gt negative_REFRAME';
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
+    [1 0   0 0   0 0   0 0   0 0   -1 0];
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
+
+c = c + 1;
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Response negative_LOOK gt negative_REFRAME';
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
+    [0 1   0 0   0 0   0 0   0 0   0 -1];
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
 
 
 %
