@@ -351,10 +351,10 @@ matlabbatch{4}.spm.stats.review.spmmat = ...
 matlabbatch{4}.spm.stats.review.display.matrix = 1;
 matlabbatch{4}.spm.stats.review.print = false;
 
-matlabbatch{5}.cfg_basicio.run_ops.call_matlab.inputs{1}.string = ...
-        fullfile(inp.out_dir,'first_level_design_ert.png');
-matlabbatch{5}.cfg_basicio.run_ops.call_matlab.outputs = cell(1,0);
-matlabbatch{5}.cfg_basicio.run_ops.call_matlab.fun = 'spm_window_print';
+%matlabbatch{5}.cfg_basicio.run_ops.call_matlab.inputs{1}.string = ...
+%        fullfile(inp.out_dir,'first_level_design_ert.png');
+%matlabbatch{5}.cfg_basicio.run_ops.call_matlab.outputs = cell(1,0);
+%matlabbatch{5}.cfg_basicio.run_ops.call_matlab.fun = 'spm_window_print';
 
 
 %% Save batch and run
