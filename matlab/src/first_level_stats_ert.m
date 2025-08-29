@@ -5,6 +5,7 @@ function first_level_stats_ert(inp)
 %   fmriprep1_dir
 %   fmriprep2_dir
 %   hpf_sec
+%   fwhm_mm
 %   out_dir
 
 %   Trial phases are Instruction, Image, Response (3)
@@ -119,9 +120,10 @@ conds = {
 
 % Smooth fmriprep's fmri timeseries and get smoothed filenames
 fwhm_mm = str2double(inp.fwhm_mm);
+clear smfri_nii
 for r = 1:nruns
 
-    clear matlabbatch sfmri_nii
+    clear matlabbatch
     matlabbatch{1}.spm.spatial.smooth.data = fmri_nii(r);
     matlabbatch{1}.spm.spatial.smooth.fwhm = [fwhm_mm fwhm_mm fwhm_mm];
     matlabbatch{1}.spm.spatial.smooth.dtype = 0;
@@ -155,8 +157,7 @@ matlabbatch{1}.spm.stats.fmri_spec.cvi = 'AR(1)';
 for r = 1:nruns
 
 	% Session-specific scans, regressors, params
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).scans = ...
-		sfmri_nii(r);
+	matlabbatch{1}.spm.stats.fmri_spec.sess(r).scans = sfmri_nii(r);
 	matlabbatch{1}.spm.stats.fmri_spec.sess(r).multi = {''};
 	matlabbatch{1}.spm.stats.fmri_spec.sess(r).regress = ...
 		struct('name', {}, 'val', {});
