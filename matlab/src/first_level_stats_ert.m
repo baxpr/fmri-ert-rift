@@ -117,6 +117,24 @@ conds = {
     'negative_REFRAME'
     };
 
+% Smooth fmriprep's fmri timeseries and get smoothed filenames
+fwhm_mm = str2double(inp.fwhm_mm);
+for r = 1:nruns
+
+    clear matlabbatch sfmri_nii
+    matlabbatch{1}.spm.spatial.smooth.data = fmri_nii(r);
+    matlabbatch{1}.spm.spatial.smooth.fwhm = [fwhm_mm fwhm_mm fwhm_mm];
+    matlabbatch{1}.spm.spatial.smooth.dtype = 0;
+    matlabbatch{1}.spm.spatial.smooth.im = 0;
+    matlabbatch{1}.spm.spatial.smooth.prefix = 's';
+    spm_jobman('run',matlabbatch);
+
+    [~,n,e] = fileparts(fmri_nii{r});
+    sfmri_nii{r} = fullfile(inp.out_dir,['s' n e]);
+
+end
+
+
 % General design
 clear matlabbatch
 matlabbatch{1}.spm.stats.fmri_spec.dir = ...
@@ -138,7 +156,7 @@ for r = 1:nruns
 
 	% Session-specific scans, regressors, params
 	matlabbatch{1}.spm.stats.fmri_spec.sess(r).scans = ...
-		fmri_nii(r);
+		sfmri_nii(r);
 	matlabbatch{1}.spm.stats.fmri_spec.sess(r).multi = {''};
 	matlabbatch{1}.spm.stats.fmri_spec.sess(r).regress = ...
 		struct('name', {}, 'val', {});
