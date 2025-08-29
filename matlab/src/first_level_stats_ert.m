@@ -400,3 +400,6 @@ spm_sections(xSPM,hReg,atlasT1_nii)
 %spm_mip_ui('Jump',spm_mip_ui('FindMIPax'),'glmax');  % Global max
 spm_mip_ui('SetCoords',[5 -96 6]);  % Task specific MNI location
 
+% Screenshot
+spm_window_print(fullfile(inp.out_dir,'first_level_result_ert.png'));
+
