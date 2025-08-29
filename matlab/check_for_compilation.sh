@@ -5,7 +5,7 @@
 flag=0
 files=`find src -name \* -type f`
 for f in ${files}; do
-    if [ "${f}" -nt bin/run_matlab_entrypoint.sh ]; then
+    if [ "${f}" -nt bin/run_spm12.sh ]; then
         echo Source code newer than binary: "${f}"
         flag=1
     fi
