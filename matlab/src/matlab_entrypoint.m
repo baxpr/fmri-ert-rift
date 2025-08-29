@@ -17,6 +17,9 @@ addOptional(P,'out_dir','/OUTPUTS');
 parse(P,varargin{:});
 disp(P.Results)
 
+% SPM init
+spm_jobman('initcfg');
+
 % Run the actual pipeline
 first_level_stats_ert(P.Results);
 
