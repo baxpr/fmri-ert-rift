@@ -1,3 +1,5 @@
 INPUTS*
 OUTPUTS*
 matlab/src/external/spm12_r7771
+matlab/bin/spm12_mcr/
+
