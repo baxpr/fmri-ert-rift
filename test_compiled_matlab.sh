@@ -2,8 +2,9 @@
 
 export PATH=$(pwd)/matlab/bin:$PATH
 
-run_matlab_entrypoint.sh \
+run_spm12.sh \
     /home/rogersbp/MATLAB/R2023a \
+    function matlab_entrypoint \
     fmriprep1_dir INPUTS/fmriprep-ert1 \
     fmriprep2_dir INPUTS/fmriprep-ert2 \
     hpf_sec 300 \

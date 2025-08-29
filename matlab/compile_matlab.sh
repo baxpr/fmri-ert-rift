@@ -1,25 +1,22 @@
-#!/bin/bash
+#!/bin/sh
 
+# Working dir
+WD=$(pwd)
+
+# Where to find SPM12 on our compilation machine
+SPM_PATH="${WD}"/src/external/spm12_r7771
+
+# Add Matlab to the path on the compilation machine
 export MATLABROOT=~/MATLAB/R2023a
 export PATH=${MATLABROOT}/bin:${PATH}
 
-# Compile. Use -a to include an entire directory and all its contents,
-# recursively. We use this for our own code. Use -N to leave out toolboxes to
-# reduce the size of the binary. Individual toolboxes can be added back in with
-# -p if needed. Use -C to avoid embedding the archive in the binary - there 
-# won't be disk space available in the container to extract it at run time, so
-# we extract it ahead of time during the singularity build.
-#
-# Relative paths are specified here, assuming we're running this script from
-# the matlab/build directory.
-#
-# More info: https://www.mathworks.com/help/compiler/mcc.html
-mcc -m -C -v src/matlab_entrypoint.m \
-    -a src \
-    -d bin
+# We use SPM12's standalone tool, but edited to add our own code to the 
+# compilation path
+matlab -nodisplay -nodesktop -nosplash -sd "${WD}" -r \
+    "spm_make_standalone_local('${SPM_PATH}','${WD}/bin','${WD}/src'); exit"
 
 # We grant lenient execute permissions to the matlab executable and runscript so
 # we don't have hiccups later.
-chmod go+rx bin/matlab_entrypoint
-chmod go+rx bin/run_matlab_entrypoint.sh
+chmod go+rx "${WD}"/bin/spm12
+chmod go+rx "${WD}"/bin/run_spm12.sh
 
