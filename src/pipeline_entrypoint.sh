@@ -37,3 +37,7 @@ xvfb-run -n $(($$ + 99)) -s '-screen 0 1600x1200x24 -ac +extension GLX' \
     out_dir "${out_dir}"
 
 # Create QC PDF
+convert \
+    "${out_dir}"/first_level_design_ert_001.png \
+    "${out_dir}"/first_level_result_ert_001.png \
+    "${out_dir}"/first_level_report_ert.pdf
