@@ -41,3 +41,6 @@ convert \
     "${out_dir}"/first_level_design_ert_001.png \
     "${out_dir}"/first_level_result_ert_001.png \
     "${out_dir}"/first_level_report_ert.pdf
+
+# Zip nii
+gzip "${out_dir}"/spm_ert/*.nii

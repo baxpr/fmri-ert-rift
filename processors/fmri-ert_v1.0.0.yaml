@@ -1,0 +1,70 @@
+# https://github.com/baxpr/stable3-fmri
+# Requires cat12, multiatlas/slant, eprime-stable3
+---
+procyamlversion: 3.0.0-dev.0
+containers:
+  - name: fmri-ert-rift
+    path: FIXME
+    source: FIXME
+requirements:
+  walltime: 0-8
+  memory: 16G
+jobtemplate: job_template_v3.txt
+
+inputs:
+
+  xnat:
+
+    filters:
+      - type: match
+        inputs: scan_fmri1,assr_fmriprep1/scan_fmri
+      - type: match
+        inputs: scan_fmri2,assr_fmriprep2/scan_fmri
+
+    scans:
+
+      - name: scan_fmri1
+        types: ERT_1
+        resources:
+          - {resource: NIFTI, fmatch: '*.nii.gz', fdest: fmri1.nii.gz}
+          - {resource: PSYDAT, fmatch: '*.psydat', fdest: ert.psydat}
+        needs_qc: True
+        skip_unusable: True
+
+      - name: scan_fmri2
+        types: ERT_2
+        resources:
+          - {resource: NIFTI, fmatch: '*.nii.gz', fdest: fmri2.nii.gz}
+        needs_qc: True
+        skip_unusable: True
+
+    assessors:
+
+      - name: assr_fmriprep1
+        proctypes: fmriprep-GRUHN_v24
+        resources:
+          - {resource: fmriprepBIDS, ftype: DIR, fdest: fmriprep1}
+
+      - name: assr_fmriprep2
+        proctypes: fmriprep-GRUHN_v24
+        resources:
+          - {resource: fmriprepBIDS, ftype: DIR, fdest: fmriprep2}
+
+outputs:
+  - pdf: first_level_report_ert.pdf
+  - dir: spm_ert
+  - {path: spmbatch_first_level_stats_ert.mat, type: FILE, resource: SPM_BATCH}
+  - {path: taskinfo.csv, type: FILE, resource: PSYDAT_CSV}
+
+
+command: 
+  type: singularity_run
+  container: fmri-ert-rift
+  args: >-
+    --fmriprep1_dir /INPUTS/fmriprep1/fmriprepBIDS
+    --fmriprep2_dir /INPUTS/fmriprep2/fmriprepBIDS
+    --psydat_file /INPUTS/ert.psydat
+    --hpf_sec 300
+    --fwhm_mm 6
+    --out_dir /OUTPUTS
+
