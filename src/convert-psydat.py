@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # We need a specific psychopy, depending on which version of psychopy
 # was used to run the experiment in the first place:
