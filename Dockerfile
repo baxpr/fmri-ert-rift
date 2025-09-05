@@ -3,7 +3,7 @@ FROM baxterprogers/fsl-base:v6.0.7.18
 
 # Matlab reqs
 RUN apt-get -y update && \
-    DEBIAN_FRONTEND=noninteractive apt-get -y install openjdk-8-jre && \
+    DEBIAN_FRONTEND=noninteractive apt-get -y install openjdk-8-jre zip unzip && \
     apt-get clean
         
 # Install the MCR
