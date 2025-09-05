@@ -25,7 +25,7 @@ done
 
 # Run the matlab part of the pipeline in xvfb
 xvfb-run -n $(($$ + 99)) -s '-screen 0 1600x1200x24 -ac +extension GLX' \
-    run_spm12.sh function matlab_entrypoint \
+    run_spm12.sh ${MATLAB_RUNTIME} function matlab_entrypoint \
     fmriprep1_dir "${fmriprep1_dir}" \
     fmriprep2_dir "${fmriprep2_dir}" \
     psydat_csv "${psydat_csv}" \
