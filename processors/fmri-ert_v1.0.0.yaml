@@ -3,6 +3,9 @@
 ---
 procyamlversion: 3.0.0-dev.0
 containers:
+  - name: psychopy
+    path: psychopy-iis_v1.0.1.sif
+    source: docker://baxterprogers/psychopy-iis:v1.0.1
   - name: fmri-ert-rift
     path: FIXME
     source: FIXME
@@ -57,13 +60,20 @@ outputs:
   - {path: taskinfo.csv, type: FILE, resource: PSYDAT_CSV}
 
 
+pre:
+  type: singularity_run
+  container: psychopy
+  args: >-
+      --psydat_file /INPUTS/ert.psydat
+      --out_file /OUTPUTS/taskinfo.csv
+
 command: 
   type: singularity_run
   container: fmri-ert-rift
   args: >-
     --fmriprep1_dir /INPUTS/fmriprep1/fmriprepBIDS
     --fmriprep2_dir /INPUTS/fmriprep2/fmriprepBIDS
-    --psydat_file /INPUTS/ert.psydat
+    --psydat_csv /OUTPUTS/taskinfo.csv
     --hpf_sec 300
     --fwhm_mm 6
     --out_dir /OUTPUTS
