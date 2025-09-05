@@ -1,5 +1,5 @@
-# https://github.com/baxpr/stable3-fmri
-# Requires cat12, multiatlas/slant, eprime-stable3
+# https://github.com/baxpr/fmri-ert-rift
+# https://github.com/VUIIS/psychopy-iis
 ---
 procyamlversion: 3.0.0-dev.0
 containers:
@@ -7,8 +7,8 @@ containers:
     path: psychopy-iis_v1.0.1.sif
     source: docker://baxterprogers/psychopy-iis:v1.0.1
   - name: fmri-ert-rift
-    path: FIXME
-    source: FIXME
+    path: fmri-ert-rift_v1.0.1.sif
+    source: docker://baxterprogers/fmri-ert-rift:v1.0.1
 requirements:
   walltime: 0-8
   memory: 16G
@@ -64,8 +64,9 @@ pre:
   type: singularity_run
   container: psychopy
   args: >-
-      --psydat_file /INPUTS/ert.psydat
-      --out_file /OUTPUTS/taskinfo.csv
+    convert-psydat.py
+    --psydat_file /INPUTS/ert.psydat
+    --out_file /OUTPUTS/taskinfo.csv
 
 command: 
   type: singularity_run
