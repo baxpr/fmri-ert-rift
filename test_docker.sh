@@ -7,5 +7,5 @@ docker run \
 	--fmriprep1_dir /INPUTS/fmriprep-ert1 \
 	--fmriprep2_dir /INPUTS/fmriprep-ert2 \
 	--hpf_sec 300 \
-	--psydat_file /INPUTS/ert1.csv \
+	--psydat_csv /OUTPUTS/taskinfo.csv \
 	--out_dir /OUTPUTS
