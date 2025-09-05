@@ -1,8 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.10
 #
 # We need a specific psychopy, depending on which version of psychopy
 # was used to run the experiment in the first place:
-#    ERT1: 2024.2.4
+#    ERT1: 2024.2.4, req python 3.10
 #
 # Many of the psychopy function names/calls are very version dependent as well
 #
@@ -21,4 +21,5 @@ args = parser.parse_args()
 data = psychopy.misc.fromFile(args.psydat_file)
 
 # Method here is to_csv in 2024.1.4 but saveAsWideText in 2024.2.4
-data.saveAsWideText(args.out_file, index=False)
+data.saveAsWideText(args.out_file)
+

@@ -1,6 +1,5 @@
 # Start with FSL, ImageMagick, python3/pandas base docker
-# Note that psychopy 2024.2.4 requires python <3.11
-FROM baxterprogers/fsl-base:v6.0.5.2
+FROM baxterprogers/fsl-base:v6.0.7.18
 
 # Matlab reqs
 RUN apt-get -y update && \
@@ -14,9 +13,15 @@ RUN wget -nv https://ssd.mathworks.com/supportfiles/downloads/R2023a/Release/6/d
     /opt/mcr_installer/install -mode silent -agreeToLicense yes && \
     rm -r /opt/mcr_installer /opt/mcr_installer.zip
 
+# We need a a python 3.10 venv for psychopy 2024.2.4
+apt install software-properties-common
+add-apt-repository universe
+
 # We need a specific version of psychopy to match the incoming data
-# Note also that psychopy 2024.2.4 requires python <3.11
-RUN pip3 install psychopy==2024.2.4
+# Note also that psychopy 2024.2.4 requires python 3.10
+# And we need to explicitly set LD_PRELOAD so it will work
+RUN pip3.10 install psychopy==2024.2.4
+ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libffi.so.7
 
 # Copy the pipeline code
 COPY matlab /opt/fmri-ert-rift/matlab
