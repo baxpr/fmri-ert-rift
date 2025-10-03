@@ -1,9 +1,14 @@
-function first_level_stats_ert(inp)
+function first_level_stats_ert_rift(inp)
 
 % Input variables
-%   psydat_csv
-%   fmriprep1_dir
-%   fmriprep2_dir
+%   ert_psydat_csv
+%   rift_psydat_csv
+%   fmriprep_ert1_dir
+%   fmriprep_ert2_dir
+%   fmriprep_rift1_dir
+%   fmriprep_rift2_dir
+%   fmriprep_rift3_dir
+%   fmriprep_rift4_dir
 %   hpf_sec
 %   fwhm_mm
 %   out_dir
@@ -22,12 +27,12 @@ function first_level_stats_ert(inp)
 %     {'neutral' }     {'LOOK'    }
 
 
-%% Get timing info from converted psydat
+%% ERT - Get timing info from converted psydat
 warning('off','MATLAB:table:ModifiedAndSavedVarnames');
-timings = readtable(inp.psydat_csv);
+timings_ert = readtable(inp.ert_psydat_csv);
 
 % Add condition column
-timings.condition = strcat(timings.image_category,'_',timings.strategy);
+timings_ert.condition = strcat(timings_ert.image_category,'_',timings_ert.strategy);
 
 % Condition and timing variables
 condvars = {'condition'};
@@ -43,17 +48,64 @@ keepvars = [condvars timevars];
 
 % Find scan start times. startedScanning has inconsistent/unknown value in
 % some cases so don't use it
-scanstarts = sort(timings.wait_for_scanner_stopped(~isnan(timings.wait_for_scanner_stopped)));
+scanstarts = sort(timings_ert.wait_for_scanner_stopped(~isnan(timings_ert.wait_for_scanner_stopped)));
 
 % Run-specific timing info relative to beginning of first fmri
-clear trialtimes
+clear trialtimes_ert
 nruns = 2;
 for r = 1:nruns
     blockfile = ['ert_block_' num2str(r) '.csv'];
-    trialtimes{r} = timings(strcmp(timings.block_file,blockfile),keepvars);
-    trialtimes{r}(:,timevars) = trialtimes{r}(:,timevars) - scanstarts(r);
+    trialtimes_ert{r} = timings_ert(strcmp(timings_ert.block_file,blockfile),keepvars);
+    trialtimes_ert{r}(:,timevars) = trialtimes_ert{r}(:,timevars) - scanstarts(r);
 end
 
+
+%% RIFT - Get timing info from converted psydat
+timings_rift = readtable(inp.rift_psydat_csv);
+
+% FIXME we need the switch info
+%    switched
+%    new_strategy_chosen
+
+% Add condition column
+timings_rift.condition = strcat(timings_rift.image_category,'_',timings_rift.strategy);
+
+% Condition and timing variables
+condvars = { ...
+    'condition', ...
+    'switched', ...
+    'new_strategy_chosen' ...
+    };
+timevars = { ...
+    'instructional_cue_rift_started', ...
+    'instructional_cue_rift_stopped', ...
+    'image_2_started', ...
+    'image_2_stopped', ...
+    'affect_rating_rift_started', ...
+    'affect_rating_rift_stopped' ...
+    };
+keepvars = [condvars timevars];
+
+% Find scan start times. startedScanning has inconsistent/unknown value in
+% some cases so don't use it
+scanstarts = sort(timings_rift.wait_for_scanner_stopped(~isnan(timings_rift.wait_for_scanner_stopped)));
+
+% Run-specific timing info relative to beginning of first fmri
+clear trialtimes_rift
+nruns = 4;
+for r = 1:nruns
+    blockfile = ['rift_block_' num2str(r) '.csv'];
+    trialtimes_rift{r} = timings_rift(strcmp(timings_rift.block_file,blockfile),keepvars);
+    trialtimes_rift{r}(:,timevars) = trialtimes_rift{r}(:,timevars) - scanstarts(r);
+
+    % new_strategy_chosen only makes sense if they switched (otherwise is
+    % historical)
+    trialtimes_rift{r}.new_strategy_chosen(~strcmp(trialtimes_rift{r}.switched,'yes')) = {''};
+
+    % Some trials get two rows, but only one row has timing info
+    trialtimes_rift{r} = trialtimes_rift{r}(~isnan(trialtimes_rift{r}.instructional_cue_rift_started),:);
+
+end
 
 %% Find fmriprep files
 
@@ -170,7 +222,7 @@ for r = 1:nruns
     k = 0;
     for c = 1:numel(conds)
 
-        inds = strcmp(trialtimes{r}.condition,conds{c});
+        inds = strcmp(trialtimes_ert{r}.condition,conds{c});
 
 %        % Condition cue
 %        k = k + 1;
@@ -189,10 +241,10 @@ for r = 1:nruns
         k = k + 1;
     	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Image'];
     	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
-    		trialtimes{r}.image_started(inds);
+    		trialtimes_ert{r}.image_started(inds);
     	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
-            trialtimes{r}.image_stopped(inds) ...
-            - trialtimes{r}.image_started(inds);
+            trialtimes_ert{r}.image_stopped(inds) ...
+            - trialtimes_ert{r}.image_started(inds);
     	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).pmod = ...
             struct('name', {}, 'param', {}, 'poly', {});
@@ -202,10 +254,10 @@ for r = 1:nruns
         k = k + 1;
     	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Response'];
     	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
-    		trialtimes{r}.affect_rating_ert_started(inds);
+    		trialtimes_ert{r}.affect_rating_ert_started(inds);
     	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
-            trialtimes{r}.affect_rating_ert_stopped(inds) ...
-            - trialtimes{r}.affect_rating_ert_started(inds);
+            trialtimes_ert{r}.affect_rating_ert_stopped(inds) ...
+            - trialtimes_ert{r}.affect_rating_ert_started(inds);
     	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).pmod = ...
             struct('name', {}, 'param', {}, 'poly', {});
