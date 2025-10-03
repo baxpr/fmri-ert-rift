@@ -100,12 +100,15 @@ for r = 1:nruns
 
     % new_strategy_chosen only makes sense if they switched (otherwise is
     % historical)
+    % FIXME does the new strat apply to the NEXT trial? I.e. edit those
+    % conditions? Or what? Can't tell which trial times are what condition
     trialtimes_rift{r}.new_strategy_chosen(~strcmp(trialtimes_rift{r}.switched,'yes')) = {''};
 
     % Some trials get two rows, but only one row has timing info
     trialtimes_rift{r} = trialtimes_rift{r}(~isnan(trialtimes_rift{r}.instructional_cue_rift_started),:);
 
 end
+
 
 %% Find fmriprep files
 
