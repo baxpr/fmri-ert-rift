@@ -8,14 +8,30 @@ end
     
 % Parse inputs
 P = inputParser;
-addOptional(P,'fmriprep1_dir','/OUTPUTS/fmriprep1')
-addOptional(P,'fmriprep2_dir','/OUTPUTS/fmriprep2')
-addOptional(P,'psydat_csv','/OUTPUTS/psydat.csv')
+addOptional(P,'fmriprep_ert1_dir','none')
+addOptional(P,'fmriprep_ert2_dir','none')
+addOptional(P,'fmriprep_rift1_dir','none')
+addOptional(P,'fmriprep_rift2_dir','none')
+addOptional(P,'fmriprep_rift3_dir','none')
+addOptional(P,'fmriprep_rift4_dir','none')
+addOptional(P,'ert_psydat_csv','/OUTPUTS/ert1.csv')
+addOptional(P,'rift_psydat_csv','/OUTPUTS/rift1.csv')
 addOptional(P,'hpf_sec','300')
 addOptional(P,'fwhm_mm','6')
 addOptional(P,'out_dir','/OUTPUTS');
 parse(P,varargin{:});
 disp(P.Results)
+
+% FIXME Due to small number of trials and inconsistent presence across
+% runs, let's concatenate and treat the full data set as a single "run".
+%
+% 1. Drop short non-ERT/RIFT trial segments at end of ERT2 and RIFT4 (?)
+%
+% 2. Account for missing runs ('none' supplied as argument) 
+%
+% 3. Adjust event timings by adding the number of actual TRs previous in
+% the combined run at the beginning of the segment.
+
 
 % SPM init
 spm_jobman('initcfg');
