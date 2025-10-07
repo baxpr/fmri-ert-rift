@@ -31,6 +31,12 @@ disp(P.Results)
 %
 % 3. Adjust event timings by adding the number of actual TRs previous in
 % the combined run at the beginning of the segment.
+%
+% 4. Combine fmriprep masks (? or just use SPM TPM as with analysis) and
+% scale fmri grand mean per run
+%
+% 5. Fix the filtering - can't be done overall, needs to be per run then
+% turned off for fitting. Hm.
 
 
 % SPM init
