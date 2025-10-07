@@ -154,6 +154,7 @@ for r = 1:nruns
     trialtimes_rift{r}.TRIAL_TYPE_ERT(:) = {'ERT'};
     trialtimes_rift{r}.TRIAL_TYPE_ERT(strcmp(trialtimes_rift{r}.TRIAL_TYPE_RIFT,'RIFT2')) = {''};
 
+    % Fix condition labels
     trialtimes_rift{r}.ACTUAL_CONDITION = trialtimes_rift{r}.LABELED_CONDITION;
     update_conds = find(strcmp(trialtimes_rift{r}.switched,'yes')) + 1;
     trialtimes_rift{r}.ACTUAL_CONDITION(update_conds) = ...
@@ -162,6 +163,16 @@ for r = 1:nruns
         '_', ...
         trialtimes_rift{r}.new_strategy_chosen(update_conds-1) ...
         );
+
+    % FIXME also label RIFT trials as these (which should be all the
+    % possibilities):
+    %    RtoA_1, RtoA_2
+    %    AtoR_1, AtoR_2
+    %    RtoR_1, RtoR_2
+    %    AtoA_1, AtoA_2
+    %
+    % Or just as RtoA, AtoR, RtoR, AtoA ?
+    
 
     trialtimes_rift{r} = trialtimes_rift{r}(:, { ...
         'block_file', ...
