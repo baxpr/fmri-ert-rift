@@ -36,7 +36,13 @@ disp(P.Results)
 % scale fmri grand mean per run
 %
 % 5. Fix the filtering - can't be done overall, needs to be per run then
-% turned off for fitting. Hm.
+% turned off for fitting. Hm. Even the run mean can vary at a single voxel,
+% even after global grand mean scaling - would need to scale per voxel?
+%
+%
+% Alternative is to build contrasts manually, leaving out any runs that
+% don't have events. And possibly leaving out regressors for a single run
+% when events don't exist.
 
 
 % SPM init
