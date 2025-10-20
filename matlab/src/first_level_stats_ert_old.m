@@ -1,14 +1,9 @@
-function first_level_stats_ert_rift(inp)
+function first_level_stats_ert(inp)
 
 % Input variables
-%   ert_psydat_csv
-%   rift_psydat_csv
-%   fmriprep_ert1_dir
-%   fmriprep_ert2_dir
-%   fmriprep_rift1_dir
-%   fmriprep_rift2_dir
-%   fmriprep_rift3_dir
-%   fmriprep_rift4_dir
+%   psydat_csv
+%   fmriprep1_dir
+%   fmriprep2_dir
 %   hpf_sec
 %   fwhm_mm
 %   out_dir
@@ -16,7 +11,7 @@ function first_level_stats_ert_rift(inp)
 %   Trial phases are Instruction, Image, Response (3)
 %   Additionally, model trial type (6)
 
-%    image_category      strategy
+%    image_category      strategy  
 %    ______________    ____________
 %
 %     {'negative'}     {'ACCEPT'  }
@@ -27,21 +22,15 @@ function first_level_stats_ert_rift(inp)
 %     {'neutral' }     {'LOOK'    }
 
 
-%% ERT - Get timing info from converted psydat
+%% Get timing info from converted psydat
 warning('off','MATLAB:table:ModifiedAndSavedVarnames');
-timings_ert = readtable(inp.ert_psydat_csv);
+timings = readtable(inp.psydat_csv);
 
 % Add condition column
-timings_ert.ACTUAL_CONDITION = strcat(timings_ert.image_category,'_',timings_ert.strategy);
+timings.condition = strcat(timings.image_category,'_',timings.strategy);
 
 % Condition and timing variables
-condvars = { ...
-    'block_file', ...
-    'image_category', ...
-    'strategy', ...
-    'image_filename', ...
-    'ACTUAL_CONDITION' ...
-    };
+condvars = {'condition'};
 timevars = { ...
     'instructional_cue_started', ...
     'instructional_cue_stopped', ...
@@ -54,144 +43,15 @@ keepvars = [condvars timevars];
 
 % Find scan start times. startedScanning has inconsistent/unknown value in
 % some cases so don't use it
-scanstarts = sort(timings_ert.wait_for_scanner_stopped(~isnan(timings_ert.wait_for_scanner_stopped)));
+scanstarts = sort(timings.wait_for_scanner_stopped(~isnan(timings.wait_for_scanner_stopped)));
 
 % Run-specific timing info relative to beginning of first fmri
-clear trialtimes_ert
+clear trialtimes
 nruns = 2;
 for r = 1:nruns
     blockfile = ['ert_block_' num2str(r) '.csv'];
-    trialtimes_ert{r} = timings_ert(strcmp(timings_ert.block_file,blockfile),keepvars);
-    trialtimes_ert{r}(:,timevars) = trialtimes_ert{r}(:,timevars) - scanstarts(r);
-    trialtimes_ert{r}.TRIAL_TYPE_ERT(:) = {'ERT'};
-
-    trialtimes_ert{r} = trialtimes_ert{r}(:, { ...
-        'block_file', ...
-        'image_category', ...
-        'strategy', ...
-        'image_filename', ...
-        'TRIAL_TYPE_ERT', ...
-        'ACTUAL_CONDITION', ...
-        'instructional_cue_started', ...
-        'instructional_cue_stopped', ...
-        'image_started', ...
-        'image_stopped', ...
-        'affect_rating_ert_started', ...
-        'affect_rating_ert_stopped' ...
-        });
-end
-
-
-%% RIFT - Get timing info from converted psydat
-timings_rift = readtable(inp.rift_psydat_csv);
-
-% Add condition column
-timings_rift.LABELED_CONDITION = strcat(timings_rift.image_category,'_',timings_rift.strategy);
-
-% Condition and timing variables
-condvars = { ...
-    'block_file', ...
-    'image_category', ...
-    'strategy', ...
-    'LABELED_CONDITION', ...
-    'switched', ...
-    'new_strategy_chosen', ...
-    'image_filename' ...
-    };
-timevars = { ...
-    'instructional_cue_rift_started', ...
-    'instructional_cue_rift_stopped', ...
-    'image_2_started', ...
-    'image_2_stopped', ...
-    'affect_rating_rift_started', ...
-    'affect_rating_rift_stopped' ...
-    };
-keepvars = [condvars timevars];
-
-% Find scan start times. startedScanning has inconsistent/unknown value in
-% some cases so don't use it
-scanstarts = sort(timings_rift.wait_for_scanner_stopped(~isnan(timings_rift.wait_for_scanner_stopped)));
-
-% Run-specific timing info relative to beginning of first fmri
-clear trialtimes_rift
-nruns = 4;
-for r = 1:nruns
-    blockfile = ['rift_block_' num2str(r) '.csv'];
-    trialtimes_rift{r} = timings_rift(strcmp(timings_rift.block_file,blockfile),keepvars);
-    trialtimes_rift{r}(:,timevars) = trialtimes_rift{r}(:,timevars) - scanstarts(r);
-
-    % new_strategy_chosen only makes sense if they switched (otherwise is
-    % historical)
-    % FIXME does the new strat apply to the NEXT trial? I.e. edit those
-    % conditions? Or what? Can't tell which trial times are what condition
-    trialtimes_rift{r}.new_strategy_chosen(~strcmp(trialtimes_rift{r}.switched,'yes')) = {''};
-
-    % Some trials get two rows, but only one row has timing info
-    trialtimes_rift{r} = trialtimes_rift{r}(~isnan(trialtimes_rift{r}.instructional_cue_rift_started),:);
-
-    % if image is identical between N and N+1,
-    %    mark N as ERT / "normal" trial
-    %    mark N+1 as RIFT trial
-    %    if N's switch is 'yes',
-    %       also rename N+1 condition by new_strategy_chosen
-    %
-    %  ???
-
-    trialtimes_rift{r}.shifted_filename(:) = {''};
-    trialtimes_rift{r}.shifted_filename(2:end) = trialtimes_rift{r}.image_filename(1:end-1);
-
-    % Default to ERT label
-    trialtimes_rift{r}.TRIAL_TYPE_RIFT(:) = {''};
-
-    % Second trial of RIFT pair labeled RIFT2
-    trialtimes_rift{r}.TRIAL_TYPE_RIFT(strcmp(trialtimes_rift{r}.image_filename,trialtimes_rift{r}.shifted_filename)) = {'RIFT2'};
-
-    % Anything before a RIFT2 is a RIFT1
-    r2 = find(strcmp(trialtimes_rift{r}.TRIAL_TYPE_RIFT,'RIFT2'));
-    trialtimes_rift{r}.TRIAL_TYPE_RIFT(r2-1) = {'RIFT1'};
-
-    % Unlabeled and RIFT1 are also used for ERT
-    trialtimes_rift{r}.TRIAL_TYPE_ERT(:) = {'ERT'};
-    trialtimes_rift{r}.TRIAL_TYPE_ERT(strcmp(trialtimes_rift{r}.TRIAL_TYPE_RIFT,'RIFT2')) = {''};
-
-    % Fix condition labels
-    trialtimes_rift{r}.ACTUAL_CONDITION = trialtimes_rift{r}.LABELED_CONDITION;
-    update_conds = find(strcmp(trialtimes_rift{r}.switched,'yes')) + 1;
-    trialtimes_rift{r}.ACTUAL_CONDITION(update_conds) = ...
-        strcat( ...
-        trialtimes_rift{r}.image_category(update_conds), ...
-        '_', ...
-        trialtimes_rift{r}.new_strategy_chosen(update_conds-1) ...
-        );
-
-    % FIXME also label RIFT trials as these (which should be all the
-    % possibilities):
-    %    RtoA_1, RtoA_2
-    %    AtoR_1, AtoR_2
-    %    RtoR_1, RtoR_2
-    %    AtoA_1, AtoA_2
-    %
-    % Or just as RtoA, AtoR, RtoR, AtoA ?
-    
-
-    trialtimes_rift{r} = trialtimes_rift{r}(:, { ...
-        'block_file', ...
-        'image_category', ...
-        'strategy', ...
-        'new_strategy_chosen', ...
-        'image_filename', ...
-        'switched', ...
-        'TRIAL_TYPE_ERT', ...
-        'TRIAL_TYPE_RIFT', ...
-        'ACTUAL_CONDITION', ...
-        'instructional_cue_rift_started', ...
-        'instructional_cue_rift_stopped', ...
-        'image_2_started', ...
-        'image_2_stopped', ...
-        'affect_rating_rift_started', ...
-        'affect_rating_rift_stopped' ...
-        });
-
+    trialtimes{r} = timings(strcmp(timings.block_file,blockfile),keepvars);
+    trialtimes{r}(:,timevars) = trialtimes{r}(:,timevars) - scanstarts(r);
 end
 
 
@@ -229,7 +89,7 @@ copyfile( ...
 gunzip(fullfile(inp.out_dir,'t1.nii.gz'));
 delete(fullfile(inp.out_dir,'t1.nii.gz'));
 
-
+  
 
 %% Other params needed by SPM
 
@@ -240,10 +100,10 @@ hpf_sec = str2double(inp.hpf_sec);
 N = nifti(fmri_nii{1});
 tr = N.timing.tspace;
 for r = 2:nruns
-    N = nifti(fmri_nii{r});
-    if abs(N.timing.tspace-tr) > 0.001
-        error('TR not matching for run %d',r)
-    end
+	N = nifti(fmri_nii{r});
+	if abs(N.timing.tspace-tr) > 0.001
+		error('TR not matching for run %d',r)
+	end
 end
 
 
@@ -281,7 +141,7 @@ end
 % General design
 clear matlabbatch
 matlabbatch{1}.spm.stats.fmri_spec.dir = ...
-    {fullfile(inp.out_dir,'spm_ert')};
+	{fullfile(inp.out_dir,'spm_ert')};
 matlabbatch{1}.spm.stats.fmri_spec.timing.units = 'secs';
 matlabbatch{1}.spm.stats.fmri_spec.timing.RT = tr;
 matlabbatch{1}.spm.stats.fmri_spec.timing.fmri_t = 16;
@@ -297,59 +157,59 @@ matlabbatch{1}.spm.stats.fmri_spec.cvi = 'AR(1)';
 
 for r = 1:nruns
 
-    % Session-specific scans, regressors, params
-    matlabbatch{1}.spm.stats.fmri_spec.sess(r).scans = sfmri_nii(r);
-    matlabbatch{1}.spm.stats.fmri_spec.sess(r).multi = {''};
-    matlabbatch{1}.spm.stats.fmri_spec.sess(r).regress = ...
-        struct('name', {}, 'val', {});
-    matlabbatch{1}.spm.stats.fmri_spec.sess(r).multi_reg = ...
-        {fullfile(inp.out_dir,['motpar' num2str(r) '.txt'])};
-    matlabbatch{1}.spm.stats.fmri_spec.sess(r).hpf = hpf_sec;
-
+	% Session-specific scans, regressors, params
+	matlabbatch{1}.spm.stats.fmri_spec.sess(r).scans = sfmri_nii(r);
+	matlabbatch{1}.spm.stats.fmri_spec.sess(r).multi = {''};
+	matlabbatch{1}.spm.stats.fmri_spec.sess(r).regress = ...
+		struct('name', {}, 'val', {});
+	matlabbatch{1}.spm.stats.fmri_spec.sess(r).multi_reg = ...
+		{fullfile(inp.out_dir,['motpar' num2str(r) '.txt'])};
+	matlabbatch{1}.spm.stats.fmri_spec.sess(r).hpf = hpf_sec;
+	
     % Conditions per run
     k = 0;
     for c = 1:numel(conds)
 
-        inds = strcmp(trialtimes_ert{r}.condition,conds{c});
+        inds = strcmp(trialtimes{r}.condition,conds{c});
 
-        %        % Condition cue
-        %        k = k + 1;
-        %    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Cue'];
-        %    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
-        %    		trialtimes{r}.instructional_cue_started(inds);
-        %    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
-        %            trialtimes{r}.instructional_cue_stopped(inds) ...
-        %            - trialtimes{r}.instructional_cue_started(inds);
-        %    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
-        %        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).pmod = ...
-        %            struct('name', {}, 'param', {}, 'poly', {});
-        %    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).orth = 1;
+%        % Condition cue
+%        k = k + 1;
+%    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Cue'];
+%    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
+%    		trialtimes{r}.instructional_cue_started(inds);
+%    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
+%            trialtimes{r}.instructional_cue_stopped(inds) ...
+%            - trialtimes{r}.instructional_cue_started(inds);
+%    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
+%        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).pmod = ...
+%            struct('name', {}, 'param', {}, 'poly', {});
+%    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).orth = 1;
 
         % Condition image
         k = k + 1;
-        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Image'];
-        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
-            trialtimes_ert{r}.image_started(inds);
-        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
-            trialtimes_ert{r}.image_stopped(inds) ...
-            - trialtimes_ert{r}.image_started(inds);
-        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Image'];
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
+    		trialtimes{r}.image_started(inds);
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
+            trialtimes{r}.image_stopped(inds) ...
+            - trialtimes{r}.image_started(inds);
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).pmod = ...
             struct('name', {}, 'param', {}, 'poly', {});
-        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).orth = 1;
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).orth = 1;
 
         % Condition response
         k = k + 1;
-        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Response'];
-        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
-            trialtimes_ert{r}.affect_rating_ert_started(inds);
-        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
-            trialtimes_ert{r}.affect_rating_ert_stopped(inds) ...
-            - trialtimes_ert{r}.affect_rating_ert_started(inds);
-        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Response'];
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
+    		trialtimes{r}.affect_rating_ert_started(inds);
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
+            trialtimes{r}.affect_rating_ert_stopped(inds) ...
+            - trialtimes{r}.affect_rating_ert_started(inds);
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).pmod = ...
             struct('name', {}, 'param', {}, 'poly', {});
-        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).orth = 1;
+    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).orth = 1;
 
     end
 
@@ -358,7 +218,7 @@ end
 
 %% Estimate
 matlabbatch{2}.spm.stats.fmri_est.spmmat = ...
-    fullfile(matlabbatch{1}.spm.stats.fmri_spec.dir,'SPM.mat');
+	fullfile(matlabbatch{1}.spm.stats.fmri_spec.dir,'SPM.mat');
 matlabbatch{2}.spm.stats.fmri_est.write_residuals = 0;
 matlabbatch{2}.spm.stats.fmri_est.method.Classical = 1;
 
@@ -385,7 +245,7 @@ matlabbatch{2}.spm.stats.fmri_est.method.Classical = 1;
 %    {'Sn(1) R5'                  }
 %    {'Sn(1) R6'                  }
 matlabbatch{3}.spm.stats.con.spmmat = ...
-    matlabbatch{2}.spm.stats.fmri_est.spmmat;
+	matlabbatch{2}.spm.stats.fmri_est.spmmat;
 matlabbatch{3}.spm.stats.con.delete = 1;
 c = 0;
 
@@ -477,23 +337,23 @@ matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
 %% Inverse of all existing contrasts since SPM won't show us both sides
 numc = numel(matlabbatch{3}.spm.stats.con.consess);
 for k = 1:numc
-    c = c + 1;
-    matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = ...
-        ['Neg ' matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.name];
-    matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
-        - matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.weights;
-    matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
+        c = c + 1;
+        matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = ...
+                ['Neg ' matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.name];
+        matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
+                - matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.weights;
+        matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
 end
 
 
 %% Review design
 matlabbatch{4}.spm.stats.review.spmmat = ...
-    matlabbatch{2}.spm.stats.fmri_est.spmmat;
+	matlabbatch{2}.spm.stats.fmri_est.spmmat;
 matlabbatch{4}.spm.stats.review.display.matrix = 1;
 matlabbatch{4}.spm.stats.review.print = false;
 
 matlabbatch{5}.cfg_basicio.run_ops.call_matlab.inputs{1}.string = ...
-    fullfile(inp.out_dir,'first_level_design_ert.png');
+        fullfile(inp.out_dir,'first_level_design_ert.png');
 matlabbatch{5}.cfg_basicio.run_ops.call_matlab.outputs = cell(1,0);
 matlabbatch{5}.cfg_basicio.run_ops.call_matlab.fun = 'spm_window_print';
 

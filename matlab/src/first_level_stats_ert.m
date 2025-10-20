@@ -1,95 +1,5 @@
 function first_level_stats_ert(inp)
 
-% Input variables
-%   psydat_csv
-%   fmriprep1_dir
-%   fmriprep2_dir
-%   hpf_sec
-%   fwhm_mm
-%   out_dir
-
-%   Trial phases are Instruction, Image, Response (3)
-%   Additionally, model trial type (6)
-
-%    image_category      strategy  
-%    ______________    ____________
-%
-%     {'negative'}     {'ACCEPT'  }
-%     {'negative'}     {'AVOID'   }
-%     {'negative'}     {'DISTRACT'}
-%     {'negative'}     {'LOOK'    }
-%     {'negative'}     {'REFRAME' }
-%     {'neutral' }     {'LOOK'    }
-
-
-%% Get timing info from converted psydat
-warning('off','MATLAB:table:ModifiedAndSavedVarnames');
-timings = readtable(inp.psydat_csv);
-
-% Add condition column
-timings.condition = strcat(timings.image_category,'_',timings.strategy);
-
-% Condition and timing variables
-condvars = {'condition'};
-timevars = { ...
-    'instructional_cue_started', ...
-    'instructional_cue_stopped', ...
-    'image_started', ...
-    'image_stopped', ...
-    'affect_rating_ert_started', ...
-    'affect_rating_ert_stopped' ...
-    };
-keepvars = [condvars timevars];
-
-% Find scan start times. startedScanning has inconsistent/unknown value in
-% some cases so don't use it
-scanstarts = sort(timings.wait_for_scanner_stopped(~isnan(timings.wait_for_scanner_stopped)));
-
-% Run-specific timing info relative to beginning of first fmri
-clear trialtimes
-nruns = 2;
-for r = 1:nruns
-    blockfile = ['ert_block_' num2str(r) '.csv'];
-    trialtimes{r} = timings(strcmp(timings.block_file,blockfile),keepvars);
-    trialtimes{r}(:,timevars) = trialtimes{r}(:,timevars) - scanstarts(r);
-end
-
-
-%% Find fmriprep files
-
-% Scale motion params and save in SPM friendly format
-for r = 1:nruns
-    confD = dir([inp.(['fmriprep' num2str(r) '_dir']) '/sub*/ses*/func/*_desc-confounds_timeseries.tsv']);
-    conf = readtable(fullfile(confD(1).folder,confD(1).name),'FileType','text','Delimiter','tab');
-    motT = conf(:,{'trans_x','trans_y','trans_z','rot_x','rot_y','rot_z'});
-    mot = zscore(table2array(motT));
-    writematrix(mot, fullfile(inp.out_dir,['motpar' num2str(r) '.txt']))
-end
-
-% Find preprocessed image files, copy, and unzip
-clear fmri_nii
-for r = 1:nruns
-    niigzD = dir([inp.(['fmriprep' num2str(r) '_dir']) '/sub*/ses*/func/*_space-MNI152NLin6Asym_desc-preproc_bold.nii.gz']);
-    fmri_nii{r} = fullfile(inp.out_dir,['fmri' num2str(r) '.nii']);
-    copyfile( ...
-        fullfile(niigzD(1).folder,niigzD(1).name), ...
-        [fmri_nii{r} '.gz'] ...
-        );
-end
-gunzip(fullfile(inp.out_dir,'fmri*.nii.gz'));
-delete(fullfile(inp.out_dir,'fmri*.nii.gz'));
-
-% Also the T1
-niigzD = dir([inp.('fmriprep1_dir') '/sub*/ses*/anat/*_space-MNI152NLin6Asym_desc-preproc_T1w.nii.gz']);
-atlasT1_nii = fullfile(inp.out_dir,'t1.nii');
-copyfile( ...
-    fullfile(niigzD(1).folder,niigzD(1).name), ...
-    [atlasT1_nii '.gz'] ...
-    );
-gunzip(fullfile(inp.out_dir,'t1.nii.gz'));
-delete(fullfile(inp.out_dir,'t1.nii.gz'));
-
-  
 
 %% Other params needed by SPM
 
@@ -97,13 +7,13 @@ delete(fullfile(inp.out_dir,'t1.nii.gz'));
 hpf_sec = str2double(inp.hpf_sec);
 
 % Get TRs and check across runs
-N = nifti(fmri_nii{1});
+N = nifti(outp.fmri_ert_nii{1});
 tr = N.timing.tspace;
-for r = 2:nruns
-	N = nifti(fmri_nii{r});
-	if abs(N.timing.tspace-tr) > 0.001
-		error('TR not matching for run %d',r)
-	end
+for fmri_nii = [outp.fmri_ert_nii(2); outp.fmri_rift_nii(:)]'
+    N = nifti(fmri_nii{1});
+    if abs(N.timing.tspace-tr) > 0.001
+        error('TR not matching for run %s',fmri_nii{1})
+    end
 end
 
 
@@ -122,26 +32,30 @@ conds = {
 % Smooth fmriprep's fmri timeseries and get smoothed filenames
 fwhm_mm = str2double(inp.fwhm_mm);
 clear smfri_nii
-for r = 1:nruns
+c = 0;
+for imgs = [outp.fmri_ert_nii outp.fmri_rift_nii]
 
     clear matlabbatch
-    matlabbatch{1}.spm.spatial.smooth.data = fmri_nii(r);
+    matlabbatch{1}.spm.spatial.smooth.data = imgs{1};
     matlabbatch{1}.spm.spatial.smooth.fwhm = [fwhm_mm fwhm_mm fwhm_mm];
     matlabbatch{1}.spm.spatial.smooth.dtype = 0;
     matlabbatch{1}.spm.spatial.smooth.im = 0;
     matlabbatch{1}.spm.spatial.smooth.prefix = 's';
     spm_jobman('run',matlabbatch);
 
-    [~,n,e] = fileparts(fmri_nii{r});
-    sfmri_nii{r} = fullfile(inp.out_dir,['s' n e]);
+    [~,n,e] = fileparts(imgs{1});
+    c = c + 1;
+    sfmri_nii{c} = fullfile(inp.out_dir,['s' n e]);
 
 end
 
 
+% FIXME WE ARE HERE
+
 % General design
 clear matlabbatch
 matlabbatch{1}.spm.stats.fmri_spec.dir = ...
-	{fullfile(inp.out_dir,'spm_ert')};
+    {fullfile(inp.out_dir,'spm_ert')};
 matlabbatch{1}.spm.stats.fmri_spec.timing.units = 'secs';
 matlabbatch{1}.spm.stats.fmri_spec.timing.RT = tr;
 matlabbatch{1}.spm.stats.fmri_spec.timing.fmri_t = 16;
@@ -157,59 +71,59 @@ matlabbatch{1}.spm.stats.fmri_spec.cvi = 'AR(1)';
 
 for r = 1:nruns
 
-	% Session-specific scans, regressors, params
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).scans = sfmri_nii(r);
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).multi = {''};
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).regress = ...
-		struct('name', {}, 'val', {});
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).multi_reg = ...
-		{fullfile(inp.out_dir,['motpar' num2str(r) '.txt'])};
-	matlabbatch{1}.spm.stats.fmri_spec.sess(r).hpf = hpf_sec;
-	
+    % Session-specific scans, regressors, params
+    matlabbatch{1}.spm.stats.fmri_spec.sess(r).scans = sfmri_nii(r);
+    matlabbatch{1}.spm.stats.fmri_spec.sess(r).multi = {''};
+    matlabbatch{1}.spm.stats.fmri_spec.sess(r).regress = ...
+        struct('name', {}, 'val', {});
+    matlabbatch{1}.spm.stats.fmri_spec.sess(r).multi_reg = ...
+        {fullfile(inp.out_dir,['motpar' num2str(r) '.txt'])};
+    matlabbatch{1}.spm.stats.fmri_spec.sess(r).hpf = hpf_sec;
+
     % Conditions per run
     k = 0;
     for c = 1:numel(conds)
 
-        inds = strcmp(trialtimes{r}.condition,conds{c});
+        inds = strcmp(trialtimes_ert{r}.condition,conds{c});
 
-%        % Condition cue
-%        k = k + 1;
-%    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Cue'];
-%    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
-%    		trialtimes{r}.instructional_cue_started(inds);
-%    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
-%            trialtimes{r}.instructional_cue_stopped(inds) ...
-%            - trialtimes{r}.instructional_cue_started(inds);
-%    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
-%        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).pmod = ...
-%            struct('name', {}, 'param', {}, 'poly', {});
-%    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).orth = 1;
+        %        % Condition cue
+        %        k = k + 1;
+        %    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Cue'];
+        %    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
+        %    		trialtimes{r}.instructional_cue_started(inds);
+        %    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
+        %            trialtimes{r}.instructional_cue_stopped(inds) ...
+        %            - trialtimes{r}.instructional_cue_started(inds);
+        %    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
+        %        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).pmod = ...
+        %            struct('name', {}, 'param', {}, 'poly', {});
+        %    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).orth = 1;
 
         % Condition image
         k = k + 1;
-    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Image'];
-    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
-    		trialtimes{r}.image_started(inds);
-    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
-            trialtimes{r}.image_stopped(inds) ...
-            - trialtimes{r}.image_started(inds);
-    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
+        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Image'];
+        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
+            trialtimes_ert{r}.image_started(inds);
+        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
+            trialtimes_ert{r}.image_stopped(inds) ...
+            - trialtimes_ert{r}.image_started(inds);
+        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).pmod = ...
             struct('name', {}, 'param', {}, 'poly', {});
-    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).orth = 1;
+        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).orth = 1;
 
         % Condition response
         k = k + 1;
-    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Response'];
-    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
-    		trialtimes{r}.affect_rating_ert_started(inds);
-    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
-            trialtimes{r}.affect_rating_ert_stopped(inds) ...
-            - trialtimes{r}.affect_rating_ert_started(inds);
-    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
+        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Response'];
+        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
+            trialtimes_ert{r}.affect_rating_ert_started(inds);
+        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
+            trialtimes_ert{r}.affect_rating_ert_stopped(inds) ...
+            - trialtimes_ert{r}.affect_rating_ert_started(inds);
+        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).pmod = ...
             struct('name', {}, 'param', {}, 'poly', {});
-    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).orth = 1;
+        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).orth = 1;
 
     end
 
@@ -218,7 +132,7 @@ end
 
 %% Estimate
 matlabbatch{2}.spm.stats.fmri_est.spmmat = ...
-	fullfile(matlabbatch{1}.spm.stats.fmri_spec.dir,'SPM.mat');
+    fullfile(matlabbatch{1}.spm.stats.fmri_spec.dir,'SPM.mat');
 matlabbatch{2}.spm.stats.fmri_est.write_residuals = 0;
 matlabbatch{2}.spm.stats.fmri_est.method.Classical = 1;
 
@@ -245,7 +159,7 @@ matlabbatch{2}.spm.stats.fmri_est.method.Classical = 1;
 %    {'Sn(1) R5'                  }
 %    {'Sn(1) R6'                  }
 matlabbatch{3}.spm.stats.con.spmmat = ...
-	matlabbatch{2}.spm.stats.fmri_est.spmmat;
+    matlabbatch{2}.spm.stats.fmri_est.spmmat;
 matlabbatch{3}.spm.stats.con.delete = 1;
 c = 0;
 
@@ -337,23 +251,23 @@ matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
 %% Inverse of all existing contrasts since SPM won't show us both sides
 numc = numel(matlabbatch{3}.spm.stats.con.consess);
 for k = 1:numc
-        c = c + 1;
-        matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = ...
-                ['Neg ' matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.name];
-        matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
-                - matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.weights;
-        matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
+    c = c + 1;
+    matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = ...
+        ['Neg ' matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.name];
+    matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
+        - matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.weights;
+    matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
 end
 
 
 %% Review design
 matlabbatch{4}.spm.stats.review.spmmat = ...
-	matlabbatch{2}.spm.stats.fmri_est.spmmat;
+    matlabbatch{2}.spm.stats.fmri_est.spmmat;
 matlabbatch{4}.spm.stats.review.display.matrix = 1;
 matlabbatch{4}.spm.stats.review.print = false;
 
 matlabbatch{5}.cfg_basicio.run_ops.call_matlab.inputs{1}.string = ...
-        fullfile(inp.out_dir,'first_level_design_ert.png');
+    fullfile(inp.out_dir,'first_level_design_ert.png');
 matlabbatch{5}.cfg_basicio.run_ops.call_matlab.outputs = cell(1,0);
 matlabbatch{5}.cfg_basicio.run_ops.call_matlab.fun = 'spm_window_print';
 
