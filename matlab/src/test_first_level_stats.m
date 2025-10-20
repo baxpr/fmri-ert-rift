@@ -15,5 +15,6 @@ inp = struct( ...
 
 outp = fileprep_ert_rift(inp);
 
+%%
 first_level_stats_ert(outp);
 

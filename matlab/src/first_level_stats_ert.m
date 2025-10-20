@@ -7,14 +7,15 @@ function first_level_stats_ert(inp)
 hpf_sec = str2double(inp.hpf_sec);
 
 % Get TRs and check across runs
-N = nifti(outp.fmri_ert_nii{1});
+N = nifti(inp.fmri_nii{1});
 tr = N.timing.tspace;
-for fmri_nii = [outp.fmri_ert_nii(2); outp.fmri_rift_nii(:)]'
-    N = nifti(fmri_nii{1});
+for r = 2:numel(inp.fmri_nii)
+    N = nifti(inp.fmri_nii{r});
     if abs(N.timing.tspace-tr) > 0.001
-        error('TR not matching for run %s',fmri_nii{1})
+        error('TR not matching for run %d',r)
     end
 end
+
 
 
 %% Design
@@ -33,10 +34,10 @@ conds = {
 fwhm_mm = str2double(inp.fwhm_mm);
 clear smfri_nii
 c = 0;
-for imgs = [outp.fmri_ert_nii outp.fmri_rift_nii]
+for imgs = inp.fmri_nii
 
     clear matlabbatch
-    matlabbatch{1}.spm.spatial.smooth.data = imgs{1};
+    matlabbatch{1}.spm.spatial.smooth.data = imgs(1);
     matlabbatch{1}.spm.spatial.smooth.fwhm = [fwhm_mm fwhm_mm fwhm_mm];
     matlabbatch{1}.spm.spatial.smooth.dtype = 0;
     matlabbatch{1}.spm.spatial.smooth.im = 0;
@@ -49,8 +50,6 @@ for imgs = [outp.fmri_ert_nii outp.fmri_rift_nii]
 
 end
 
-
-% FIXME WE ARE HERE
 
 % General design
 clear matlabbatch
@@ -69,7 +68,7 @@ matlabbatch{1}.spm.stats.fmri_spec.mask = {[spm('dir') '/tpm/mask_ICV.nii']};
 matlabbatch{1}.spm.stats.fmri_spec.cvi = 'AR(1)';
 
 
-for r = 1:nruns
+for r = 1:6
 
     % Session-specific scans, regressors, params
     matlabbatch{1}.spm.stats.fmri_spec.sess(r).scans = sfmri_nii(r);
@@ -84,29 +83,20 @@ for r = 1:nruns
     k = 0;
     for c = 1:numel(conds)
 
-        inds = strcmp(trialtimes_ert{r}.condition,conds{c});
-
-        %        % Condition cue
-        %        k = k + 1;
-        %    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Cue'];
-        %    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
-        %    		trialtimes{r}.instructional_cue_started(inds);
-        %    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
-        %            trialtimes{r}.instructional_cue_stopped(inds) ...
-        %            - trialtimes{r}.instructional_cue_started(inds);
-        %    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
-        %        matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).pmod = ...
-        %            struct('name', {}, 'param', {}, 'poly', {});
-        %    	matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).orth = 1;
+        % Only keep specific condition, ERT-type trials
+        inds = strcmp(inp.trialtimes{r}.ACTUAL_CONDITION,conds{c}) ...
+            & strcmp(inp.trialtimes{r}.TRIAL_TYPE_ERT,'ERT');
+        %fprintf('Found %d %s trials run %d\n',sum(inds),conds{c},r);
+        if sum(inds)==0, continue, end
 
         % Condition image
         k = k + 1;
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Image'];
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
-            trialtimes_ert{r}.image_started(inds);
+            inp.trialtimes{r}.image_started(inds);
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
-            trialtimes_ert{r}.image_stopped(inds) ...
-            - trialtimes_ert{r}.image_started(inds);
+            inp.trialtimes{r}.image_stopped(inds) ...
+            - inp.trialtimes{r}.image_started(inds);
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).pmod = ...
             struct('name', {}, 'param', {}, 'poly', {});
@@ -116,10 +106,10 @@ for r = 1:nruns
         k = k + 1;
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Response'];
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
-            trialtimes_ert{r}.affect_rating_ert_started(inds);
+            inp.trialtimes{r}.affect_rating_started(inds);
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
-            trialtimes_ert{r}.affect_rating_ert_stopped(inds) ...
-            - trialtimes_ert{r}.affect_rating_ert_started(inds);
+            inp.trialtimes{r}.affect_rating_stopped(inds) ...
+            - inp.trialtimes{r}.affect_rating_started(inds);
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).pmod = ...
             struct('name', {}, 'param', {}, 'poly', {});
@@ -139,25 +129,9 @@ matlabbatch{2}.spm.stats.fmri_est.method.Classical = 1;
 
 %% Contrasts
 %
-% Parameters per session SPM.xX.name' are
-%    {'negative_LOOK_Image'       }
-%    {'negative_LOOK_Response'    }
-%    {'neutral_LOOK_Image'        }
-%    {'neutral_LOOK_Response'     }
-%    {'negative_ACCEPT_Image'     }
-%    {'negative_ACCEPT_Response'  }
-%    {'negative_AVOID_Image'      }
-%    {'negative_AVOID_Response'   }
-%    {'negative_DISTRACT_Image'   }
-%    {'negative_DISTRACT_Response'}
-%    {'negative_REFRAME_Image'    }
-%    {'negative_REFRAME_Response' }
-%    {'Sn(1) R1'                  }
-%    {'Sn(1) R2'                  }
-%    {'Sn(1) R3'                  }
-%    {'Sn(1) R4'                  }
-%    {'Sn(1) R5'                  }
-%    {'Sn(1) R6'                  }
+% Parameters per session SPM.xX.name' vary.
+%
+% Desired contrasts are "look_NEGATIVE" vs each of the other five
 matlabbatch{3}.spm.stats.con.spmmat = ...
     matlabbatch{2}.spm.stats.fmri_est.spmmat;
 matlabbatch{3}.spm.stats.con.delete = 1;
@@ -165,87 +139,9 @@ c = 0;
 
 % Sanity check
 c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Image gt Response';
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
-    1/6 * [1 -1   1 -1   1 -1   1 -1   1 -1   1 -1];
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Test';
+matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = 1;
 matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-
-% Individual conditions
-types = {'Image', 'Response'};
-for a = 1:numel(conds)
-    for b = 1:numel(types)
-        c = c + 1;
-        matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = [conds{a} '_' types{b}];
-        v1 = [zeros(1,b-1) 1 zeros(1,numel(types)-b)];
-        cvec = zeros(1,numel(conds)*numel(types));
-        ind = a*numel(types)-numel(types)+1;
-        cvec(ind:ind+numel(types)-1) = v1;
-        matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = cvec;
-        matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-    end
-end
-
-% negative_LOOK vs others
-c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Image negative_LOOK gt neutral_LOOK';
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
-    [1 0   -1 0];
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-
-c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Response negative_LOOK gt neutral_LOOK';
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
-    [0 1   0 -1];
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-
-c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Image negative_LOOK gt negative_ACCEPT';
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
-    [1 0   0 0   -1 0];
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-
-c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Response negative_LOOK gt negative_ACCEPT';
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
-    [0 1   0 0   0 -1];
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-
-c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Image negative_LOOK gt negative_AVOID';
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
-    [1 0   0 0   0 0   -1 0];
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-
-c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Response negative_LOOK gt negative_AVOID';
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
-    [0 1   0 0   0 0   0 -1];
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-
-c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Image negative_LOOK gt negative_DISTRACT';
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
-    [1 0   0 0   0 0   0 0   -1 0];
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-
-c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Response negative_LOOK gt negative_DISTRACT';
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
-    [0 1   0 0   0 0   0 0   0 -1];
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-
-c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Image negative_LOOK gt negative_REFRAME';
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
-    [1 0   0 0   0 0   0 0   0 0   -1 0];
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-
-c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Response negative_LOOK gt negative_REFRAME';
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
-    [0 1   0 0   0 0   0 0   0 0   0 -1];
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
-
 
 %
 %% Inverse of all existing contrasts since SPM won't show us both sides
