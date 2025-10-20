@@ -233,19 +233,25 @@ end
 %% Find fmriprep files
 
 % Scale motion params and save in SPM friendly format
+clear motpar_txt
+c = 0;
 for r = 1:2  % ert
     confD = dir([inp.(['fmriprep_ert' num2str(r) '_dir']) '/sub*/ses*/func/*_desc-confounds_timeseries.tsv']);
     conf = readtable(fullfile(confD(1).folder,confD(1).name),'FileType','text','Delimiter','tab');
     motT = conf(:,{'trans_x','trans_y','trans_z','rot_x','rot_y','rot_z'});
     mot = zscore(table2array(motT));
-    writematrix(mot, fullfile(inp.out_dir,['motpar_ert' num2str(r) '.txt']))
+    c = c + 1;
+    motpar_txt{c} = fullfile(inp.out_dir,['motpar_ert' num2str(r) '.txt']);
+    writematrix(mot, motpar_txt{c})
 end
 for r = 1:4  % rift
     confD = dir([inp.(['fmriprep_rift' num2str(r) '_dir']) '/sub*/ses*/func/*_desc-confounds_timeseries.tsv']);
     conf = readtable(fullfile(confD(1).folder,confD(1).name),'FileType','text','Delimiter','tab');
     motT = conf(:,{'trans_x','trans_y','trans_z','rot_x','rot_y','rot_z'});
     mot = zscore(table2array(motT));
-    writematrix(mot, fullfile(inp.out_dir,['motpar_rift' num2str(r) '.txt']))
+    c = c + 1;
+    motpar_txt{c} = fullfile(inp.out_dir,['motpar_rift' num2str(r) '.txt']);
+    writematrix(mot, motpar_txt{c})
 end
 
 % Find preprocessed image files, copy, and unzip
@@ -284,9 +290,11 @@ delete(fullfile(inp.out_dir,'t1.nii.gz'));
 % Outputs for next step
 outp = struct( ...
     'fmri_nii', {[fmri_ert_nii fmri_rift_nii]}, ...
+    'motpar_txt', {motpar_txt}, ...
     'trialtimes', {[trialtimes_ert trialtimes_rift]}, ...
     'hpf_sec', inp.hpf_sec, ...
     'fwhm_mm', inp.fwhm_mm, ...
+    'atlasT1_nii', atlasT1_nii, ...
     'out_dir', inp.out_dir ...
     );
 

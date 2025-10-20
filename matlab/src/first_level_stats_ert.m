@@ -3,6 +3,8 @@ function first_level_stats_ert(inp)
 
 %% Other params needed by SPM
 
+spm('defaults','fmri')
+
 % Filter param
 hpf_sec = str2double(inp.hpf_sec);
 
@@ -42,7 +44,7 @@ for imgs = inp.fmri_nii
     matlabbatch{1}.spm.spatial.smooth.dtype = 0;
     matlabbatch{1}.spm.spatial.smooth.im = 0;
     matlabbatch{1}.spm.spatial.smooth.prefix = 's';
-    spm_jobman('run',matlabbatch);
+    %spm_jobman('run',matlabbatch);
 
     [~,n,e] = fileparts(imgs{1});
     c = c + 1;
@@ -53,8 +55,8 @@ end
 
 % General design
 clear matlabbatch
-matlabbatch{1}.spm.stats.fmri_spec.dir = ...
-    {fullfile(inp.out_dir,'spm_ert')};
+spmdir = fullfile(inp.out_dir,'spm_ert');
+matlabbatch{1}.spm.stats.fmri_spec.dir = {spmdir};
 matlabbatch{1}.spm.stats.fmri_spec.timing.units = 'secs';
 matlabbatch{1}.spm.stats.fmri_spec.timing.RT = tr;
 matlabbatch{1}.spm.stats.fmri_spec.timing.fmri_t = 16;
@@ -73,10 +75,8 @@ for r = 1:6
     % Session-specific scans, regressors, params
     matlabbatch{1}.spm.stats.fmri_spec.sess(r).scans = sfmri_nii(r);
     matlabbatch{1}.spm.stats.fmri_spec.sess(r).multi = {''};
-    matlabbatch{1}.spm.stats.fmri_spec.sess(r).regress = ...
-        struct('name', {}, 'val', {});
-    matlabbatch{1}.spm.stats.fmri_spec.sess(r).multi_reg = ...
-        {fullfile(inp.out_dir,['motpar' num2str(r) '.txt'])};
+    matlabbatch{1}.spm.stats.fmri_spec.sess(r).regress = struct('name', {}, 'val', {});
+    matlabbatch{1}.spm.stats.fmri_spec.sess(r).multi_reg = inp.motpar_txt(r);
     matlabbatch{1}.spm.stats.fmri_spec.sess(r).hpf = hpf_sec;
 
     % Conditions per run
@@ -121,56 +121,146 @@ end
 
 
 %% Estimate
-matlabbatch{2}.spm.stats.fmri_est.spmmat = ...
-    fullfile(matlabbatch{1}.spm.stats.fmri_spec.dir,'SPM.mat');
+spmmat = fullfile(matlabbatch{1}.spm.stats.fmri_spec.dir,'SPM.mat');
+matlabbatch{2}.spm.stats.fmri_est.spmmat = spmmat;
 matlabbatch{2}.spm.stats.fmri_est.write_residuals = 0;
 matlabbatch{2}.spm.stats.fmri_est.method.Classical = 1;
 
 
+%% Run, to get info we need for the contrasts
+save(fullfile(inp.out_dir,'spmbatch_first_level_stats_ert_spec_est.mat'),'matlabbatch')
+spm_jobman('run',matlabbatch);
+
+
 %% Contrasts
 %
-% Parameters per session SPM.xX.name' vary.
+% Parameters per session SPM.xX.name vary.
 %
 % Desired contrasts are "look_NEGATIVE" vs each of the other five
-matlabbatch{3}.spm.stats.con.spmmat = ...
-    matlabbatch{2}.spm.stats.fmri_est.spmmat;
-matlabbatch{3}.spm.stats.con.delete = 1;
+
+% Get predictor names (SPM.xX.name contains 'negative_LOOK_Image' etc)
+load(spmmat{1},'SPM');
+
+% We will weight contrast entries by number of trials in the session
+
+% Find trial counts using SPM.xX.name
+trialcounts = table();
+t = 0;
+for p = 1:numel(SPM.xX.name)
+    t = t + 1;
+    trialcounts.predictornum(t,1) = p;
+    trialcounts.predictorname(t,1) = SPM.xX.name(p);
+    sn = regexp(SPM.xX.name{p},'Sn\((.)\)','tokens');
+    trialcounts.session(t,1) = str2num(sn{1}{1});
+    cn = regexp(SPM.xX.name{p},'Sn\(.\) (.*)\*','tokens');
+    if numel(cn)>0
+        trialcounts.condition{t,1} = cn{1}{1};
+    else
+        trialcounts.condition{t,1} = '';
+    end
+    u = find(strcmp([SPM.Sess(trialcounts.session(t,1)).U.name],trialcounts.condition{t,1}));
+    if numel(u)>0
+        trialcounts.trialcount(t,1) = numel(SPM.Sess(trialcounts.session(t,1)).U(u).ons);
+    else
+        trialcounts.trialcount(t,1) = 0;
+    end
+end
+
+% Setup
+clear matlabbatch
+matlabbatch{1}.spm.stats.con.spmmat = spmmat;
+matlabbatch{1}.spm.stats.con.delete = 1;
 c = 0;
 
-% Sanity check
+% Sanity check, Image vs Response
 c = c + 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = 'Test';
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = 1;
-matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
+matlabbatch{1}.spm.stats.con.consess{c}.tcon.name = 'Image gt Response';
+matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights = zeros(1,numel(trialcounts.predictorname));
+ind1 = find(contains(trialcounts.condition,'_Image'));
+cnt1 = trialcounts.trialcount(ind1);
+wt1 = cnt1 ./ sum(cnt1);
+ind2 = find(contains(trialcounts.condition,'_Response'));
+cnt2 = trialcounts.trialcount(ind2);
+wt2 = cnt2 ./ sum(cnt2);
+matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind1) = wt1;
+matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind2) = -wt2;
+matlabbatch{1}.spm.stats.con.consess{c}.tcon.sessrep = 'none';
 
-%
+% Individual conditions
+conds = {
+    'negative_LOOK'
+    'neutral_LOOK'
+    'negative_ACCEPT'
+    'negative_AVOID'
+    'negative_DISTRACT'
+    'negative_REFRAME'
+    };
+types = {'Image', 'Response'};
+for a = 1:numel(conds)
+    for b = 1:numel(types)
+        c = c + 1;
+        matlabbatch{1}.spm.stats.con.consess{c}.tcon.name = [conds{a} '_' types{b}];
+        matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights = zeros(1,numel(trialcounts.predictorname));
+        ind1 = find(contains(trialcounts.condition,[conds{a} '_' types{b}]));
+        cnt1 = trialcounts.trialcount(ind1);
+        wt1 = cnt1 ./ sum(cnt1);
+        matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind1) = wt1;
+        matlabbatch{1}.spm.stats.con.consess{c}.tcon.sessrep = 'none';
+    end
+end
+
+% Each condition vs negative_LOOK for both Image and Response
+conds = {
+    'neutral_LOOK'
+    'negative_ACCEPT'
+    'negative_AVOID'
+    'negative_DISTRACT'
+    'negative_REFRAME'
+    };
+types = {'Image', 'Response'};
+for a = 1:numel(conds)
+    for b = 1:numel(types)
+        c = c + 1;
+        matlabbatch{1}.spm.stats.con.consess{c}.tcon.name = [conds{a} '_gt_negative_LOOK_' types{b}];
+        matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights = zeros(1,numel(trialcounts.predictorname));
+        ind1 = find(contains(trialcounts.condition,[conds{a} '_' types{b}]));
+        cnt1 = trialcounts.trialcount(ind1);
+        wt1 = cnt1 ./ sum(cnt1);
+        ind2 = find(contains(trialcounts.condition,['negative_LOOK_' types{b}]));
+        cnt2 = trialcounts.trialcount(ind2);
+        wt2 = cnt2 ./ sum(cnt2);
+        matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind1) = wt1;
+        matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind2) = -wt2;
+        matlabbatch{1}.spm.stats.con.consess{c}.tcon.sessrep = 'none';
+    end
+end
+
+
 %% Inverse of all existing contrasts since SPM won't show us both sides
-numc = numel(matlabbatch{3}.spm.stats.con.consess);
+numc = numel(matlabbatch{1}.spm.stats.con.consess);
 for k = 1:numc
     c = c + 1;
-    matlabbatch{3}.spm.stats.con.consess{c}.tcon.name = ...
-        ['Neg ' matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.name];
-    matlabbatch{3}.spm.stats.con.consess{c}.tcon.weights = ...
-        - matlabbatch{3}.spm.stats.con.consess{c-numc}.tcon.weights;
-    matlabbatch{3}.spm.stats.con.consess{c}.tcon.sessrep = 'replsc';
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.name = ...
+        ['Neg ' matlabbatch{1}.spm.stats.con.consess{c-numc}.tcon.name];
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights = ...
+        - matlabbatch{1}.spm.stats.con.consess{c-numc}.tcon.weights;
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.sessrep = 'none';
 end
 
 
 %% Review design
-matlabbatch{4}.spm.stats.review.spmmat = ...
-    matlabbatch{2}.spm.stats.fmri_est.spmmat;
-matlabbatch{4}.spm.stats.review.display.matrix = 1;
-matlabbatch{4}.spm.stats.review.print = false;
+matlabbatch{2}.spm.stats.review.spmmat = spmmat;
+matlabbatch{2}.spm.stats.review.display.matrix = 1;
+matlabbatch{2}.spm.stats.review.print = false;
 
-matlabbatch{5}.cfg_basicio.run_ops.call_matlab.inputs{1}.string = ...
+matlabbatch{3}.cfg_basicio.run_ops.call_matlab.inputs{1}.string = ...
     fullfile(inp.out_dir,'first_level_design_ert.png');
-matlabbatch{5}.cfg_basicio.run_ops.call_matlab.outputs = cell(1,0);
-matlabbatch{5}.cfg_basicio.run_ops.call_matlab.fun = 'spm_window_print';
+matlabbatch{3}.cfg_basicio.run_ops.call_matlab.outputs = cell(1,0);
+matlabbatch{3}.cfg_basicio.run_ops.call_matlab.fun = 'spm_window_print';
 
 
 %% Save batch and run
-save(fullfile(inp.out_dir,'spmbatch_first_level_stats_ert.mat'),'matlabbatch')
-spm('defaults','fmri')
+save(fullfile(inp.out_dir,'spmbatch_first_level_stats_ert_con_run_review.mat'),'matlabbatch')
 spm_jobman('run',matlabbatch);
 
 % And save contrast names
@@ -191,7 +281,7 @@ spm_jobman('run',matlabbatch);
 %% Results display
 % Needed to create the spmT even if we don't get the figure window
 xSPM = struct( ...
-    'swd', matlabbatch{1}.spm.stats.fmri_spec.dir, ...
+    'swd', spmdir, ...
     'title', '', ...
     'Ic', 1, ...
     'n', 0, ...
@@ -205,7 +295,7 @@ xSPM = struct( ...
 [hReg,xSPM] = spm_results_ui('Setup',xSPM);
 
 % Show on the subject MNI anat
-spm_sections(xSPM,hReg,atlasT1_nii)
+spm_sections(xSPM,hReg,inp.atlasT1_nii)
 
 % Jump to activation location
 %spm_mip_ui('Jump',spm_mip_ui('FindMIPax'),'glmax');  % Global max
