@@ -235,6 +235,45 @@ for a = 1:numel(conds)
     end
 end
 
+% accept + reframe (vs negative) and distract + avoidance (vs negative) 
+types = {'Image', 'Response'};
+for b = 1:numel(types)
+    c = c + 1;
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.name = ['negative_AVOID_DISTRACT_gt_negative_LOOK_' types{b}];
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights = zeros(1,numel(trialcounts.predictorname));
+    ind1 = find(contains(trialcounts.condition,['negative_AVOID_' types{b}]));
+    cnt1 = trialcounts.trialcount(ind1);
+    wt1 = cnt1 ./ sum(cnt1);
+    ind2 = find(contains(trialcounts.condition,['negative_DISTRACT_' types{b}]));
+    cnt2 = trialcounts.trialcount(ind2);
+    wt2 = cnt2 ./ sum(cnt2);
+    ind3 = find(contains(trialcounts.condition,['negative_LOOK_' types{b}]));
+    cnt3 = trialcounts.trialcount(ind3);
+    wt3 = cnt3 ./ sum(cnt3);
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind1) = 0.5 * wt1;
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind2) = 0.5 * wt2;
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind3) = -wt3;
+end
+
+types = {'Image', 'Response'};
+for b = 1:numel(types)
+    c = c + 1;
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.name = ['negative_ACCEPT_REFRAME_gt_negative_LOOK_' types{b}];
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights = zeros(1,numel(trialcounts.predictorname));
+    ind1 = find(contains(trialcounts.condition,['negative_ACCEPT_' types{b}]));
+    cnt1 = trialcounts.trialcount(ind1);
+    wt1 = cnt1 ./ sum(cnt1);
+    ind2 = find(contains(trialcounts.condition,['negative_REFRAME_' types{b}]));
+    cnt2 = trialcounts.trialcount(ind2);
+    wt2 = cnt2 ./ sum(cnt2);
+    ind3 = find(contains(trialcounts.condition,['negative_LOOK_' types{b}]));
+    cnt3 = trialcounts.trialcount(ind3);
+    wt3 = cnt3 ./ sum(cnt3);
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind1) = 0.5 * wt1;
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind2) = 0.5 * wt2;
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind3) = -wt3;
+end
+
 
 %% Inverse of all existing contrasts since SPM won't show us both sides
 numc = numel(matlabbatch{1}.spm.stats.con.consess);
