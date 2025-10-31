@@ -44,7 +44,7 @@ for imgs = inp.fmri_nii
     matlabbatch{1}.spm.spatial.smooth.dtype = 0;
     matlabbatch{1}.spm.spatial.smooth.im = 0;
     matlabbatch{1}.spm.spatial.smooth.prefix = 's';
-    spm_jobman('run',matlabbatch);
+    %spm_jobman('run',matlabbatch);
 
     [~,n,e] = fileparts(imgs{1});
     c = c + 1;
@@ -93,10 +93,10 @@ for r = 1:6
         k = k + 1;
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).name = [conds{c} '_Image'];
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).onset = ...
-            inp.trialtimes{r}.image_started(inds);
+            inp.trialtimes{r}.online_reg_started(inds);
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).duration = ...
-            inp.trialtimes{r}.image_stopped(inds) ...
-            - inp.trialtimes{r}.image_started(inds);
+            inp.trialtimes{r}.online_reg_stopped(inds) ...
+            - inp.trialtimes{r}.online_reg_started(inds);
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).tmod = 0;
         matlabbatch{1}.spm.stats.fmri_spec.sess(r).cond(k).pmod = ...
             struct('name', {}, 'param', {}, 'poly', {});
