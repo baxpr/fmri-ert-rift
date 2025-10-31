@@ -13,5 +13,5 @@ docker run \
     --ert_psydat_csv /OUTPUTS/ert.csv \
     --rift_psydat_csv /OUTPUTS/rift.csv \
 	--hpf_sec 300 \
-    --fwhm 6 \
+    --fwhm_mm 6 \
 	--out_dir /OUTPUTS
