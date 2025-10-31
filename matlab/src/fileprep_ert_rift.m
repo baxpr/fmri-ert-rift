@@ -128,8 +128,6 @@ for r = 1:nruns
 
     % new_strategy_chosen only makes sense if they switched (otherwise is
     % historical)
-    % FIXME does the new strat apply to the NEXT trial? I.e. edit those
-    % conditions? Or what? Can't tell which trial times are what condition
     trialtimes_rift{r}.new_strategy_chosen(~strcmp(trialtimes_rift{r}.switched,'yes')) = {''};
 
     % Some trials get two rows, but only one row has timing info
@@ -140,9 +138,6 @@ for r = 1:nruns
     %    mark N+1 as RIFT trial
     %    if N's switch is 'yes',
     %       also rename N+1 condition by new_strategy_chosen
-    %
-    %  ???
-
     trialtimes_rift{r}.shifted_filename(:) = {''};
     trialtimes_rift{r}.shifted_filename(2:end) = trialtimes_rift{r}.image_filename(1:end-1);
 

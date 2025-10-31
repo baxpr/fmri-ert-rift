@@ -28,6 +28,8 @@ The second trial of every RIFT pair in the four RIFT runs is ignored and not mod
 
 The number of trials per run varies, so contrasts are weighted across runs such that each individual trial receives equal weight.
 
+The six estimated motion parameters for each run are included in the model as covariates of no interest.
+
 
 ## Outputs
 

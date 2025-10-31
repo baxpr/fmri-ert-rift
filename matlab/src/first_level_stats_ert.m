@@ -44,7 +44,7 @@ for imgs = inp.fmri_nii
     matlabbatch{1}.spm.spatial.smooth.dtype = 0;
     matlabbatch{1}.spm.spatial.smooth.im = 0;
     matlabbatch{1}.spm.spatial.smooth.prefix = 's';
-    %spm_jobman('run',matlabbatch);
+    spm_jobman('run',matlabbatch);
 
     [~,n,e] = fileparts(imgs{1});
     c = c + 1;
