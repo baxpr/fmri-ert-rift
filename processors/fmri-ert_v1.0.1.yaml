@@ -85,7 +85,8 @@ outputs:
   - pdf: first_level_report_ert.pdf
   - dir: spm_ert
   - {path: spmbatch*, type: FILE, resource: SPM_BATCH}
-  - {path: taskinfo.csv, type: FILE, resource: PSYDAT_CSV}
+  - {path: ert.csv, type: FILE, resource: PSYDAT_CSV}
+  - {path: rift.csv, type: FILE, resource: PSYDAT_CSV}
 
 pre:
   type: singularity_exec
