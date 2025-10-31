@@ -239,7 +239,7 @@ end
 types = {'Image', 'Response'};
 for b = 1:numel(types)
     c = c + 1;
-    matlabbatch{1}.spm.stats.con.consess{c}.tcon.name = ['negative_AVOID_DISTRACT_gt_negative_LOOK_' types{b}];
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.name = ['AVOID_DISTRACT_gt_negative_LOOK_' types{b}];
     matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights = zeros(1,numel(trialcounts.predictorname));
     ind1 = find(contains(trialcounts.condition,['negative_AVOID_' types{b}]));
     cnt1 = trialcounts.trialcount(ind1);
@@ -258,7 +258,7 @@ end
 types = {'Image', 'Response'};
 for b = 1:numel(types)
     c = c + 1;
-    matlabbatch{1}.spm.stats.con.consess{c}.tcon.name = ['negative_ACCEPT_REFRAME_gt_negative_LOOK_' types{b}];
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.name = ['ACCEPT_REFRAME_gt_negative_LOOK_' types{b}];
     matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights = zeros(1,numel(trialcounts.predictorname));
     ind1 = find(contains(trialcounts.condition,['negative_ACCEPT_' types{b}]));
     cnt1 = trialcounts.trialcount(ind1);
@@ -272,6 +272,30 @@ for b = 1:numel(types)
     matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind1) = 0.5 * wt1;
     matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind2) = 0.5 * wt2;
     matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind3) = -wt3;
+end
+
+% accept + reframe  vs  distract + avoidance
+types = {'Image', 'Response'};
+for b = 1:numel(types)
+    c = c + 1;
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.name = ['ACCEPT_REFRAME_gt_AVOID_DISTRACT_' types{b}];
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights = zeros(1,numel(trialcounts.predictorname));
+    ind1 = find(contains(trialcounts.condition,['negative_ACCEPT_' types{b}]));
+    cnt1 = trialcounts.trialcount(ind1);
+    wt1 = cnt1 ./ sum(cnt1);
+    ind2 = find(contains(trialcounts.condition,['negative_REFRAME_' types{b}]));
+    cnt2 = trialcounts.trialcount(ind2);
+    wt2 = cnt2 ./ sum(cnt2);
+    ind3 = find(contains(trialcounts.condition,['negative_AVOID_' types{b}]));
+    cnt3 = trialcounts.trialcount(ind3);
+    wt3 = cnt3 ./ sum(cnt3);
+    ind4 = find(contains(trialcounts.condition,['negative_DISTRACT_' types{b}]));
+    cnt4 = trialcounts.trialcount(ind4);
+    wt4 = cnt4 ./ sum(cnt4);
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind1) = 0.5 * wt1;
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind2) = 0.5 * wt2;
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind3) = -0.5 * wt3;
+    matlabbatch{1}.spm.stats.con.consess{c}.tcon.weights(ind4) = -0.5 * wt4;
 end
 
 
