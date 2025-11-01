@@ -7,8 +7,8 @@ containers:
     path: psychopy-iis_v1.0.1.sif
     source: docker://baxterprogers/psychopy-iis:v1.0.1
   - name: fmri-ert-rift
-    path: fmri-ert-rift_v1.0.2.sif
-    source: docker://baxterprogers/fmri-ert-rift:v1.0.2
+    path: fmri-ert-rift_v2.0.0.sif
+    source: docker://baxterprogers/fmri-ert-rift:v2.0.0
 requirements:
   walltime: 0-8
   memory: 16G
