@@ -19,12 +19,18 @@ inputs:
   xnat:
 
     filters:
-      - {type: match, inputs: scan_ert1,fmriprep_ert1/scan_fmri}
-      - {type: match, inputs: scan_ert2,fmriprep_ert2/scan_fmri}
-      - {type: match, inputs: scan_rift1,fmriprep_rift1/scan_fmri}
-      - {type: match, inputs: scan_rift2,fmriprep_rift2/scan_fmri}
-      - {type: match, inputs: scan_rift3,fmriprep_rift3/scan_fmri}
-      - {type: match, inputs: scan_rift4,fmriprep_rift4/scan_fmri}
+      - type: match
+        inputs: scan_ert1,fmriprep_ert1/scan_fmri
+      - type: match
+        inputs: scan_ert2,fmriprep_ert2/scan_fmri
+      - type: match
+        inputs: scan_rift1,fmriprep_rift1/scan_fmri
+      - type: match
+        inputs: scan_rift2,fmriprep_rift2/scan_fmri
+      - type: match
+        inputs: scan_rift3,fmriprep_rift3/scan_fmri
+      - type: match
+        inputs: scan_rift4,fmriprep_rift4/scan_fmri
 
     scans:
 
@@ -60,10 +66,7 @@ inputs:
         proctypes: fmriprep-GRUHN_v24
         resources:
           - {resource: fmriprepBIDS, ftype: DIR, fdest: fmriprep-ert2}
-      - name: fmriprep_rift1
-        proctypes: fmriprep-GRUHN_v24
-        resources:
-          - {resource: fmriprepBIDS, ftype: DIR, fdest: fmriprep-rift1}
+
       - name: fmriprep_rift1
         proctypes: fmriprep-GRUHN_v24
         resources:
